@@ -1,6 +1,26 @@
 # 🤖 VacBot — Autonomous Vacuum Robot
 
-> A complete **WiFi-connected, MQTT-controlled vacuum robot** with autonomous cleaning mode, real-time dashboard, and full simulator for testing.
+> **Build your own WiFi-connected autonomous vacuum robot!**
+>
+> A complete, open-source project featuring an ESP32-S3 powered robot with MQTT cloud connectivity, boustrophedon autonomous cleaning, real-time web dashboard, and a Node.js simulator for testing without hardware.
+
+---
+
+## 📋 Table of Contents
+
+- [Quick Feature Overview](#-quick-feature-overview)
+- [Project Files](#-project-files)
+- [Getting Started](#-getting-started)
+- [Configuration](#-configuration)
+- [MQTT Topics Reference](#-mqtt-topics-reference)
+- [Hardware Wiring](#-hardware-wiring)
+- [Required Libraries](#-required-libraries)
+- [Calibration & Tuning](#%EF%B8%8F-calibration--tuning)
+- [Simulator Features](#-simulator-features)
+- [Troubleshooting](#-troubleshooting)
+- [System Architecture](#-system-architecture)
+- [Security Considerations](#-security-considerations)
+- [Testing Checklist](#-testing-checklist)
 
 ---
 
@@ -388,7 +408,3 @@ See [SIMULATOR_GUIDE.md](SIMULATOR_GUIDE.md) for setup instructions.
 4. Enjoy your autonomous robot! 🤖
 
 Questions? Review the firmware comments or check the troubleshooting section above.
-
-#   V a c c u m - R o b o t 
- 
- 
