@@ -1,0 +1,21 @@
+{
+  "name": "VacBot Control",
+  "short_name": "VacBot",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0b0d12",
+  "theme_color": "#0b0d12",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%230b0d12' width='192' height='192'/><g transform='translate(96,96)'><circle cx='0' cy='0' r='60' fill='none' stroke='%2300d4aa' stroke-width='4'/><ellipse cx='0' cy='-35' rx='25' ry='30' fill='%2300d4aa'/><circle cx='-20' cy='15' r='8' fill='%2300d4aa'/><circle cx='20' cy='15' r='8' fill='%2300d4aa'/><path d='M -30 45 L -20 55 L 20 55 L 30 45' stroke='%2300d4aa' stroke-width='3' fill='none'/></g></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect fill='%230b0d12' width='512' height='512'/><g transform='translate(256,256)'><circle cx='0' cy='0' r='160' fill='none' stroke='%2300d4aa' stroke-width='10'/><ellipse cx='0' cy='-95' rx='65' ry='80' fill='%2300d4aa'/><circle cx='-55' cy='40' r='20' fill='%2300d4aa'/><circle cx='55' cy='40' r='20' fill='%2300d4aa'/><path d='M -80 120 L -50 150 L 50 150 L 80 120' stroke='%2300d4aa' stroke-width='8' fill='none'/></g></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "vacbot-simulator",
+  "version": "1.0.0",
+  "description": "VacBot Robot MQTT Simulator - simulates robot without hardware",
+  "main": "simulator.js",
+  "scripts": {
+    "simulator": "node simulator.js"
+  },
+  "dependencies": {
+    "mqtt": "^4.3.7"
+  }
+}

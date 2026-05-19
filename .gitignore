@@ -1,0 +1,34 @@
+# Node.js
+node_modules/
+npm-debug.log
+*.log
+package-lock.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+Thumbs.db
+.DS_Store
+._*
+
+# Build
+dist/
+build/
+
+# Arduino
+*.o
+*.a
+*.so
+.pio/
+.vscode/
