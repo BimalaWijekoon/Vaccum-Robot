@@ -9,6 +9,16 @@ const config = {
   topicPrefix: 'vacbot'
 };
 
+// Hardware constants (from main.cpp)
+const DRIVE_SPEED = 90;
+const PIVOT_SPEED = 90;
+const VACUUM_TURBO_SPEED = 255;
+const VACUUM_ECO_SPEED = 160;
+const FRONT_STOP_CM = 9;
+const SIDE_CLEAR_CM = 7;
+const SPEED_RATIO = DRIVE_SPEED / 255.0;
+const PIVOT_RATIO = PIVOT_SPEED / 255.0;
+
 // Simulated Robot State
 let robotState = {
   mode: 'MANUAL',
@@ -21,6 +31,9 @@ let robotState = {
     alert: false
   },
   distance: {
+    front: 150,
+    left: 80,
+    right: 90,
     cm: 150,
     obstacle: false
   },
@@ -42,6 +55,7 @@ let rightPulses = 0;
 let yawIntegration = 0;
 let distanceTraveled = 0;
 let rowsSizeCompleted = 0;
+let calibrating = true;
 
 // Topic map
 const topics = {
@@ -75,13 +89,24 @@ client.on('connect', () => {
     topics.cmdMode
   ]);
   
-  console.log('📡 Listening to commands...\n');
-  
-  // Publish online status
-  client.publish(topics.statOnline, 'online');
-  
-  // Start simulation loop
-  startSimulation();
+  console.log('📡 Listening to commands...');
+  console.log('🔧 Simulating gyro calibration (5 seconds)...\n');
+
+  // Simulate 5 second calibration delay (from main.cpp calibrateGyro + determineGyroSign)
+  let calProgress = 0;
+  const calInterval = setInterval(() => {
+    calProgress++;
+    console.log(`   ⏳ Calibration: ${calProgress}/5 seconds...`);
+    if (calProgress >= 5) {
+      clearInterval(calInterval);
+      calibrating = false;
+      console.log('   ✅ Gyro calibration complete!\n');
+      // Publish online status after calibration
+      client.publish(topics.statOnline, 'online');
+      // Start simulation loop
+      startSimulation();
+    }
+  }, 1000);
 });
 
 client.on('message', (topic, payload) => {
@@ -89,13 +114,21 @@ client.on('message', (topic, payload) => {
   console.log(`📥 Command received: ${topic} → ${message}`);
   
   if (topic === topics.cmdMovement) {
+    if (calibrating) {
+      console.log('   ⏳ Ignoring movement — calibrating...');
+      return;
+    }
     robotState.movement = message;
     if (robotState.mode === 'MANUAL') {
       console.log(`   🤖 Movement: ${message}`);
     }
   } else if (topic === topics.cmdSuction) {
-    robotState.suction = parseInt(message);
-    console.log(`   🌀 Suction: ${robotState.suction}/255`);
+    if (robotState.mode === 'MANUAL') {
+      robotState.suction = parseInt(message);
+      console.log(`   🌀 Suction: ${robotState.suction}/255`);
+    } else {
+      console.log('   ⚠️  Suction ignored in AUTO mode (firmware-controlled)');
+    }
   } else if (topic === topics.cmdMode) {
     robotState.mode = message;
     if (message === 'AUTO') {
@@ -116,7 +149,7 @@ client.on('error', (err) => {
 });
 
 function initializeAutoMode() {
-  robotState.auto.state = 'AUTO_START_ROW';
+  robotState.auto.state = 'MOVING_FORWARD';
   robotState.auto.row = 1;
   robotState.auto.yaw = 0;
   robotState.auto.coverage_pct = 0;
@@ -125,6 +158,9 @@ function initializeAutoMode() {
   leftPulses = 0;
   rightPulses = 0;
   yawIntegration = 0;
+  // Auto vacuum speed based on battery
+  robotState.suction = robotState.battery.percent > 70 ? VACUUM_TURBO_SPEED : VACUUM_ECO_SPEED;
+  console.log(`   🌀 Vacuum: ${robotState.suction === VACUUM_TURBO_SPEED ? 'TURBO' : 'ECO'} mode`);
 }
 
 function startSimulation() {

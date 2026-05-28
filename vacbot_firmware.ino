@@ -2,7 +2,7 @@
 // VacBot Firmware for ESP32-S3
 // ============================================================================
 // Complete Arduino C++ sketch. Edit only the CONFIG section below.
-// Libraries required: PubSubClient, Adafruit MPU6050, Adafruit Unified Sensor, ArduinoJson
+// Libraries required: PubSubClient, Adafruit MPU6050, Adafruit Unified Sensor, Adafruit NeoPixel, ArduinoJson
 // ============================================================================
 
 // ============================================================================
@@ -23,6 +23,12 @@
 #define MAX_ROWS                 10
 #define OBSTACLE_CM              15
 #define TURN_DONE_DEG            88.0f
+#define DRIVE_SPEED              90
+#define PIVOT_SPEED              90
+#define FRONT_STOP_CM            9
+#define SIDE_CLEAR_CM            7
+#define VACUUM_TURBO_SPEED       255
+#define VACUUM_ECO_SPEED         160
 // ============================================================================
 
 #include <WiFi.h>
@@ -31,22 +37,30 @@
 #include <Wire.h>
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
+#include <Adafruit_NeoPixel.h>
 #include <ArduinoJson.h>
 
-// GPIO Pin Definitions
-#define PIN_VOLTAGE    1
-#define PIN_SUCTION    4
-#define PIN_IN1        5
-#define PIN_IN2        6
-#define PIN_IN3        7
-#define PIN_IN4        8
-#define PIN_TRIG       9
-#define PIN_ECHO       10
-#define PIN_SDA        11
-#define PIN_SCL        12
-#define PIN_ENC_LEFT   13
-#define PIN_ENC_RIGHT  14
-#define PIN_LED        2
+// GPIO Pin Definitions (from main.cpp hardware truth)
+#define PIN_LEFT_ENA    4    // Left motor PWM speed
+#define PIN_LEFT_IN1    5    // Left motor direction A
+#define PIN_LEFT_IN2    6    // Left motor direction B
+#define PIN_RIGHT_ENB   7    // Right motor PWM speed
+#define PIN_RIGHT_IN3   15   // Right motor direction A
+#define PIN_RIGHT_IN4   16   // Right motor direction B
+#define PIN_ENC_LEFT    17   // Left wheel encoder
+#define PIN_ENC_RIGHT   18   // Right wheel encoder
+#define PIN_TRIG        10   // Shared ultrasonic trigger
+#define PIN_ECHO_FRONT  11   // Front ultrasonic echo
+#define PIN_ECHO_LEFT   12   // Left ultrasonic echo
+#define PIN_ECHO_RIGHT  13   // Right ultrasonic echo
+#define PIN_BATTERY     20   // Battery voltage ADC
+#define PIN_VAC_PWM     38   // Vacuum motor PWM (TB6612FNG)
+#define PIN_VAC_IN1     47   // Vacuum motor direction AIN1+BIN1
+#define PIN_VAC_IN2     45   // Vacuum motor direction AIN2+BIN2
+#define RGB_PIN         48   // NeoPixel RGB LED
+#define NUM_PIXELS      1
+#define PIN_SDA         8    // MPU6050 SDA
+#define PIN_SCL         9    // MPU6050 SCL
 
 // MQTT Topics
 #define T_CMD_MOVEMENT  "vacbot/cmd/movement"
@@ -87,11 +101,14 @@ BXJQqqS7KhKKaKKPMPJ8mNXGF7kJmXmPSxAiDUGfvvFa0yE/Lrqvvr3DJBM4yZJv
 WiFiClientSecure secureClient;
 PubSubClient mqtt(secureClient);
 Adafruit_MPU6050 mpu;
+Adafruit_NeoPixel rgb(NUM_PIXELS, RGB_PIN, NEO_GRB + NEO_KHZ800);
 
 volatile long leftPulses = 0;
 volatile long rightPulses = 0;
-float yaw = 0.0f;
-float yawRef = 0.0f;
+float gyroAngle = 0.0f;
+float gyroAngleRef = 0.0f;
+float gyroBiasZ = 0.0f;
+float gyroSign = 1.0f;
 unsigned long lastGyroMs = 0;
 
 String currentMode = "MANUAL";
@@ -105,6 +122,13 @@ unsigned long lastAutoPub = 0;
 unsigned long lastReconnectAttempt = 0;
 unsigned long reconnectDelay = 2000;
 
+// Ultrasonic sensor results
+struct Sonars {
+  long front;
+  long left;
+  long right;
+};
+
 enum AutoState {
   AUTO_IDLE,
   AUTO_START_ROW,
@@ -117,7 +141,16 @@ enum AutoState {
   AUTO_COMPLETE
 };
 
+// Obstacle avoidance sub-phases
+enum AvoidPhase {
+  AVOID_WAITING,
+  AVOID_READING,
+  AVOID_TURNING
+};
+
 AutoState autoState = AUTO_IDLE;
+AvoidPhase avoidPhase = AVOID_WAITING;
+int avoidTurnDir = 0; // 1=left, -1=right
 int autoRow = 0;
 int turnDir = 1;
 int obstacleRetry = 0;
@@ -137,41 +170,71 @@ void IRAM_ATTR rightEncoderISR() {
 }
 
 // ============================================================================
-// Motor Control Functions
+// RGB LED
 // ============================================================================
+void setRGB(uint8_t r, uint8_t g, uint8_t b) {
+  rgb.setPixelColor(0, rgb.Color(r, g, b));
+  rgb.show();
+}
+
+// ============================================================================
+// Motor Control Functions (from main.cpp — dual H-bridge with speed PWM)
+// ============================================================================
+void setLeftMotor(int speed, int direction) {
+  analogWrite(PIN_LEFT_ENA, constrain(abs(speed), 0, 255));
+  if (direction > 0) {
+    digitalWrite(PIN_LEFT_IN1, HIGH);
+    digitalWrite(PIN_LEFT_IN2, LOW);
+  } else if (direction < 0) {
+    digitalWrite(PIN_LEFT_IN1, LOW);
+    digitalWrite(PIN_LEFT_IN2, HIGH);
+  } else {
+    digitalWrite(PIN_LEFT_IN1, LOW);
+    digitalWrite(PIN_LEFT_IN2, LOW);
+  }
+}
+
+void setRightMotor(int speed, int direction) {
+  analogWrite(PIN_RIGHT_ENB, constrain(abs(speed), 0, 255));
+  if (direction > 0) {
+    digitalWrite(PIN_RIGHT_IN3, HIGH);
+    digitalWrite(PIN_RIGHT_IN4, LOW);
+  } else if (direction < 0) {
+    digitalWrite(PIN_RIGHT_IN3, LOW);
+    digitalWrite(PIN_RIGHT_IN4, HIGH);
+  } else {
+    digitalWrite(PIN_RIGHT_IN3, LOW);
+    digitalWrite(PIN_RIGHT_IN4, LOW);
+  }
+}
+
 void motorsStop() {
-  digitalWrite(PIN_IN1, LOW);
-  digitalWrite(PIN_IN2, LOW);
-  digitalWrite(PIN_IN3, LOW);
-  digitalWrite(PIN_IN4, LOW);
+  analogWrite(PIN_LEFT_ENA, 0);
+  analogWrite(PIN_RIGHT_ENB, 0);
+  digitalWrite(PIN_LEFT_IN1, LOW);
+  digitalWrite(PIN_LEFT_IN2, LOW);
+  digitalWrite(PIN_RIGHT_IN3, LOW);
+  digitalWrite(PIN_RIGHT_IN4, LOW);
 }
 
 void motorsForward() {
-  digitalWrite(PIN_IN1, HIGH);
-  digitalWrite(PIN_IN2, LOW);
-  digitalWrite(PIN_IN3, HIGH);
-  digitalWrite(PIN_IN4, LOW);
+  setLeftMotor(DRIVE_SPEED, 1);
+  setRightMotor(DRIVE_SPEED, 1);
 }
 
 void motorsBackward() {
-  digitalWrite(PIN_IN1, LOW);
-  digitalWrite(PIN_IN2, HIGH);
-  digitalWrite(PIN_IN3, LOW);
-  digitalWrite(PIN_IN4, HIGH);
+  setLeftMotor(DRIVE_SPEED, -1);
+  setRightMotor(DRIVE_SPEED, -1);
 }
 
 void motorsLeft() {
-  digitalWrite(PIN_IN1, LOW);
-  digitalWrite(PIN_IN2, HIGH);
-  digitalWrite(PIN_IN3, HIGH);
-  digitalWrite(PIN_IN4, LOW);
+  setLeftMotor(PIVOT_SPEED, -1);
+  setRightMotor(PIVOT_SPEED, 1);
 }
 
 void motorsRight() {
-  digitalWrite(PIN_IN1, HIGH);
-  digitalWrite(PIN_IN2, LOW);
-  digitalWrite(PIN_IN3, LOW);
-  digitalWrite(PIN_IN4, HIGH);
+  setLeftMotor(PIVOT_SPEED, 1);
+  setRightMotor(PIVOT_SPEED, -1);
 }
 
 void setMotorsByCmd(String cmd) {
@@ -179,7 +242,6 @@ void setMotorsByCmd(String cmd) {
     motorsStop();
     return;
   }
-  
   if (cmd == "FORWARD") {
     motorsForward();
   } else if (cmd == "BACKWARD") {
@@ -190,6 +252,22 @@ void setMotorsByCmd(String cmd) {
     motorsRight();
   } else if (cmd == "STOP") {
     motorsStop();
+  }
+}
+
+// ============================================================================
+// Vacuum Motor Control (TB6612FNG — from main.cpp)
+// ============================================================================
+void setVacuumMotor(int speed) {
+  speed = constrain(speed, 0, 255);
+  if (speed == 0) {
+    analogWrite(PIN_VAC_PWM, 0);
+    digitalWrite(PIN_VAC_IN1, LOW);
+    digitalWrite(PIN_VAC_IN2, LOW);
+  } else {
+    digitalWrite(PIN_VAC_IN1, HIGH);
+    digitalWrite(PIN_VAC_IN2, LOW);
+    analogWrite(PIN_VAC_PWM, speed);
   }
 }
 
@@ -206,34 +284,71 @@ float avgDistCm() {
 }
 
 // ============================================================================
-// Yaw/IMU Functions
+// Gyro/IMU Functions (from main.cpp — with bias and sign correction)
 // ============================================================================
-void updateYaw() {
+void calibrateGyro() {
+  Serial.println("\nKeep robot still for calibration...");
+  float sumZ = 0;
+  int samples = 0;
+  unsigned long start = millis();
+  while (millis() - start < 3000) {
+    sensors_event_t a, g, temp;
+    mpu.getEvent(&a, &g, &temp);
+    sumZ += g.gyro.z;
+    samples++;
+    delay(5);
+  }
+  gyroBiasZ = sumZ / samples;
+  Serial.print("Gyro Bias Z = ");
+  Serial.println(gyroBiasZ, 6);
+}
+
+void determineGyroSign() {
+  Serial.println("Checking gyro direction...");
+  gyroAngle = 0;
+  lastGyroMs = millis();
+  motorsLeft();  // brief pivot left
+  unsigned long start = millis();
+  while (millis() - start < 300) {
+    sensors_event_t a, g, temp;
+    mpu.getEvent(&a, &g, &temp);
+    unsigned long now = millis();
+    float dt = (now - lastGyroMs) / 1000.0f;
+    lastGyroMs = now;
+    gyroAngle += ((g.gyro.z - gyroBiasZ) * 180.0f / PI) * dt;
+  }
+  motorsStop();
+  delay(300);
+  gyroSign = (gyroAngle < 0) ? -1.0f : 1.0f;
+  Serial.println("Gyro sign configured.");
+  gyroAngle = 0;
+}
+
+void updateGyroAngle() {
   if (millis() - lastGyroMs < 50) {
     return;
   }
-  
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
-  
   float dt = (millis() - lastGyroMs) / 1000.0f;
-  yaw += g.gyro.z * (180.0f / PI) * dt;
+  float correctedZ = (g.gyro.z - gyroBiasZ) * gyroSign;
+  gyroAngle += correctedZ * (180.0f / PI) * dt;
   lastGyroMs = millis();
 }
 
-void resetYawRef() {
-  yawRef = yaw;
+void resetGyroAngleRef() {
+  gyroAngleRef = gyroAngle;
 }
 
-float yawDelta() {
-  return abs(yaw - yawRef);
+float gyroAngleDelta() {
+  return abs(gyroAngle - gyroAngleRef);
 }
 
 // ============================================================================
 // Battery Functions
 // ============================================================================
 float readVoltage() {
-  return analogRead(PIN_VOLTAGE) * (3.3f / 4095.0f) * 5.0f;
+  return analogRead(PIN_BATTERY) * (3.3f / 4095.0f) * 5.0f;
 }
 
 int voltageToPercent(float voltage) {
@@ -254,56 +369,82 @@ void publishBattery() {
   int percent = voltageToPercent(voltage);
   String health = voltageToHealth(percent);
   bool alert = (percent < 25);
-  
+
+  // RGB LED battery color indication (from main.cpp)
+  if (percent > 70) {
+    setRGB(0, 255, 0);       // GREEN
+  } else if (percent > 40) {
+    setRGB(255, 255, 0);     // YELLOW
+  } else if (percent > 15) {
+    setRGB(255, 80, 0);      // ORANGE
+  } else {
+    setRGB(255, 0, 0);       // RED
+  }
+
+  // Auto vacuum speed control based on battery
+  if (currentMode == "AUTO" && !alert) {
+    setVacuumMotor(percent > 70 ? VACUUM_TURBO_SPEED : VACUUM_ECO_SPEED);
+  }
+
   if (alert) {
     motorsStop();
-    ledcWrite(0, 0);
+    setVacuumMotor(0);
     if (currentMode == "AUTO") {
       autoState = AUTO_IDLE;
       currentMode = "MANUAL";
       mqtt.publish(T_STAT_MODE, "MANUAL", true);
     }
   }
-  
+
   StaticJsonDocument<256> doc;
   doc["voltage"] = serialized(String(voltage, 1));
   doc["percent"] = percent;
   doc["health"] = health;
   doc["alert"] = alert;
-  
+
   String payload;
   serializeJson(doc, payload);
   mqtt.publish(T_STAT_BATTERY, payload.c_str(), true);
 }
 
 // ============================================================================
-// Distance/Ultrasonic Functions
+// Ultrasonic Functions (3-sensor from main.cpp)
 // ============================================================================
-float readDistance() {
+long readSonar(int echoPin) {
   digitalWrite(PIN_TRIG, LOW);
-  delayMicroseconds(2);
+  delayMicroseconds(4);
   digitalWrite(PIN_TRIG, HIGH);
   delayMicroseconds(10);
   digitalWrite(PIN_TRIG, LOW);
-  
-  long duration = pulseIn(PIN_ECHO, HIGH, 25000);
-  if (duration == 0) return 999.0f;
-  return duration * 0.0343f / 2.0f;
+  long duration = pulseIn(echoPin, HIGH, 20000);
+  if (duration == 0) return 999;
+  return duration * 0.034 / 2;
+}
+
+Sonars readAllSonars() {
+  Sonars s;
+  s.front = readSonar(PIN_ECHO_FRONT);
+  delay(30);
+  s.left = readSonar(PIN_ECHO_LEFT);
+  delay(30);
+  s.right = readSonar(PIN_ECHO_RIGHT);
+  delay(30);
+  return s;
 }
 
 void publishDistance() {
-  float dist = readDistance();
-  distanceCm = dist;
+  long dist = readSonar(PIN_ECHO_FRONT);
+  distanceCm = (float)dist;
   obstacleDetected = (dist < OBSTACLE_CM);
-  
+
   if (obstacleDetected && currentMode == "MANUAL") {
     motorsStop();
   }
-  
+
   StaticJsonDocument<128> doc;
   doc["cm"] = (int)dist;
   doc["obstacle"] = obstacleDetected;
-  
+
   String payload;
   serializeJson(doc, payload);
   mqtt.publish(T_STAT_DISTANCE, payload.c_str());
@@ -341,7 +482,7 @@ void publishAutoStatus() {
   StaticJsonDocument<384> doc;
   doc["state"] = autoStateName();
   doc["row"] = autoRow;
-  doc["yaw"] = serialized(String(yaw, 1));
+  doc["yaw"] = serialized(String(gyroAngle, 1));
   doc["left_dist_cm"] = serialized(String(leftDist, 1));
   doc["right_dist_cm"] = serialized(String(rightDist, 1));
   doc["coverage_pct"] = (int)coveragePct;
@@ -365,9 +506,11 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       setMotorsByCmd(p);
     }
   } else if (strcmp(topic, T_CMD_SUCTION) == 0) {
-    int val = constrain(p.toInt(), 0, 255);
-    ledcWrite(0, val);
-    currentSuction = val;
+    if (currentMode == "MANUAL") {
+      int val = constrain(p.toInt(), 0, 255);
+      setVacuumMotor(val);
+      currentSuction = val;
+    }
   } else if (strcmp(topic, T_CMD_MODE) == 0) {
     if (p == "AUTO") {
       currentMode = "AUTO";
@@ -375,11 +518,13 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       autoState = AUTO_START_ROW;
       coveragePct = 0.0f;
       resetEncoders();
-      resetYawRef();
+      resetGyroAngleRef();
+      // Auto vacuum speed set by publishBattery()
       mqtt.publish(T_STAT_MODE, "AUTO", true);
     } else if (p == "MANUAL") {
       currentMode = "MANUAL";
       motorsStop();
+      setVacuumMotor(0);
       autoState = AUTO_IDLE;
       mqtt.publish(T_STAT_MODE, "MANUAL", true);
     }
@@ -415,63 +560,84 @@ bool connectMQTT() {
 void setup() {
   Serial.begin(115200);
   delay(500);
-  
+
+  // RGB LED first
+  rgb.begin();
+  rgb.setBrightness(80);
+  rgb.show();
+
+  // ADC
   analogReadResolution(12);
-  analogSetAttenuation(ADC_11db);
-  
-  pinMode(PIN_IN1, OUTPUT);
-  pinMode(PIN_IN2, OUTPUT);
-  pinMode(PIN_IN3, OUTPUT);
-  pinMode(PIN_IN4, OUTPUT);
+
+  // Motor pins
+  pinMode(PIN_LEFT_ENA, OUTPUT);
+  pinMode(PIN_LEFT_IN1, OUTPUT);
+  pinMode(PIN_LEFT_IN2, OUTPUT);
+  pinMode(PIN_RIGHT_ENB, OUTPUT);
+  pinMode(PIN_RIGHT_IN3, OUTPUT);
+  pinMode(PIN_RIGHT_IN4, OUTPUT);
   motorsStop();
-  
-  ledcSetup(0, 20000, 8);
-  ledcAttachPin(PIN_SUCTION, 0);
-  ledcWrite(0, 0);
-  
+
+  // Vacuum motor pins (TB6612FNG)
+  pinMode(PIN_VAC_PWM, OUTPUT);
+  pinMode(PIN_VAC_IN1, OUTPUT);
+  pinMode(PIN_VAC_IN2, OUTPUT);
+  analogWrite(PIN_VAC_PWM, 0);
+  digitalWrite(PIN_VAC_IN1, LOW);
+  digitalWrite(PIN_VAC_IN2, LOW);
+
+  // Ultrasonic (3 sensors, shared trigger)
   pinMode(PIN_TRIG, OUTPUT);
-  pinMode(PIN_ECHO, INPUT);
-  pinMode(PIN_LED, OUTPUT);
-  
+  pinMode(PIN_ECHO_FRONT, INPUT);
+  pinMode(PIN_ECHO_LEFT, INPUT);
+  pinMode(PIN_ECHO_RIGHT, INPUT);
+  digitalWrite(PIN_TRIG, LOW);
+
+  // Encoders
   pinMode(PIN_ENC_LEFT, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(PIN_ENC_LEFT), leftEncoderISR, RISING);
-  
   pinMode(PIN_ENC_RIGHT, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(PIN_ENC_RIGHT), rightEncoderISR, RISING);
-  
+
+  // I2C + MPU6050
   Wire.begin(PIN_SDA, PIN_SCL);
-  
   if (!mpu.begin()) {
     Serial.println("MPU6050 not found!");
     while (1) {
-      digitalWrite(PIN_LED, HIGH);
+      setRGB(255, 0, 0);  // RED = error
       delay(100);
-      digitalWrite(PIN_LED, LOW);
+      setRGB(0, 0, 0);
       delay(100);
     }
   }
-  
-  mpu.setGyroRange(MPU6050_RANGE_250_DEG);
+  mpu.setGyroRange(MPU6050_RANGE_500_DEG);
   mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
   lastGyroMs = millis();
-  
+  Serial.println("MPU6050 connected");
+  delay(1000);
+
+  // Gyro calibration (runs once in setup — delay() allowed here)
+  calibrateGyro();
+  determineGyroSign();
+
+  // WiFi
+  setRGB(0, 0, 255);  // BLUE = connecting
   Serial.println("Connecting to WiFi...");
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   unsigned long wifiStart = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - wifiStart < 10000) {
-    digitalWrite(PIN_LED, !digitalRead(PIN_LED));
     delay(500);
   }
-  digitalWrite(PIN_LED, LOW);
-  
+  setRGB(0, 255, 0);  // GREEN = connected
   Serial.print("WiFi connected: ");
   Serial.println(WiFi.localIP());
-  
+
+  // MQTT
   secureClient.setCACert(ROOT_CA);
   mqtt.setServer(MQTT_HOST, MQTT_PORT);
   mqtt.setCallback(mqttCallback);
   mqtt.setBufferSize(512);
-  
+
   connectMQTT();
 }
 
@@ -490,28 +656,28 @@ void loop() {
   } else {
     mqtt.loop();
   }
-  
-  // Update yaw
-  updateYaw();
-  
+
+  // Update gyro angle
+  updateGyroAngle();
+
   // Publish distance
   if (millis() - lastDistancePub >= 500) {
     publishDistance();
     lastDistancePub = millis();
   }
-  
+
   // Publish battery
   if (millis() - lastBatteryPub >= 2000) {
     publishBattery();
     lastBatteryPub = millis();
   }
-  
+
   // Auto mode status
   if (currentMode == "AUTO" && millis() - lastAutoPub >= 1000) {
     publishAutoStatus();
     lastAutoPub = millis();
   }
-  
+
   // Run auto mode state machine
   if (currentMode == "AUTO") {
     runAutoMode();
@@ -522,71 +688,100 @@ void loop() {
 // Auto Mode State Machine
 // ============================================================================
 void runAutoMode() {
-  unsigned long backupTimer = 0;
-  unsigned long turnTimer = 0;
-  static unsigned long backupStart = 0;
-  static unsigned long turnStart = 0;
-  
   switch (autoState) {
     case AUTO_IDLE:
       // Waiting for mode command
       break;
-      
+
     case AUTO_START_ROW:
       resetEncoders();
-      resetYawRef();
+      resetGyroAngleRef();
       motorsForward();
       autoState = AUTO_MOVING_FORWARD;
       break;
-      
+
     case AUTO_MOVING_FORWARD:
       if (obstacleDetected) {
         motorsStop();
         obstacleTimer = millis();
         obstacleRetry = 0;
+        avoidPhase = AVOID_WAITING;
         autoState = AUTO_OBSTACLE_AVOID;
       } else if (avgDistCm() >= ROW_LENGTH_CM) {
         motorsStop();
         autoState = AUTO_ROW_COMPLETE;
       }
       break;
-      
+
     case AUTO_OBSTACLE_AVOID:
-      if (millis() - obstacleTimer < 1000) {
-        // Wait 1 second
-        break;
-      }
-      if (!obstacleDetected) {
-        resetEncoders();
-        motorsForward();
-        autoState = AUTO_MOVING_FORWARD;
-      } else {
-        obstacleRetry++;
-        if (obstacleRetry > 3) {
-          motorsStop();
-          ledcWrite(0, 0);
-          autoState = AUTO_COMPLETE;
-        } else {
-          // Backup for 600ms
-          backupStart = millis();
-          motorsBackward();
-          // Will turn in next iteration
+      // Non-blocking obstacle avoidance (from main.cpp avoidObstacle logic)
+      switch (avoidPhase) {
+        case AVOID_WAITING:
+          // Wait 2 seconds after obstacle detected
+          if (millis() - obstacleTimer >= 2000) {
+            avoidPhase = AVOID_READING;
+          }
+          break;
+
+        case AVOID_READING: {
+          // Read all 3 sensors and decide turn direction
+          Sonars s = readAllSonars();
+          bool leftClear = (s.left > SIDE_CLEAR_CM);
+          bool rightClear = (s.right > SIDE_CLEAR_CM);
+
+          if (leftClear && rightClear) {
+            avoidTurnDir = (s.left >= s.right) ? 1 : -1;
+          } else if (leftClear) {
+            avoidTurnDir = 1;
+          } else if (rightClear) {
+            avoidTurnDir = -1;
+          } else {
+            avoidTurnDir = 1;  // Both blocked, default left
+          }
+
+          // Start pivoting
+          resetGyroAngleRef();
+          if (avoidTurnDir > 0) {
+            motorsLeft();
+          } else {
+            motorsRight();
+          }
+          avoidPhase = AVOID_TURNING;
+          break;
         }
+
+        case AVOID_TURNING:
+          // Wait for turn to complete (non-blocking)
+          if (gyroAngleDelta() >= TURN_DONE_DEG) {
+            motorsStop();
+            obstacleRetry++;
+            if (obstacleRetry > 3) {
+              motorsStop();
+              setVacuumMotor(0);
+              autoState = AUTO_COMPLETE;
+            } else {
+              // Resume forward
+              resetEncoders();
+              motorsForward();
+              autoState = AUTO_MOVING_FORWARD;
+            }
+          }
+          break;
       }
       break;
-      
+
     case AUTO_ROW_COMPLETE:
       autoRow++;
       coveragePct = (autoRow / (float)MAX_ROWS) * 100.0f;
       if (autoRow >= MAX_ROWS) {
         motorsStop();
-        ledcWrite(0, 0);
+        setVacuumMotor(0);
         autoState = AUTO_COMPLETE;
         currentMode = "MANUAL";
         mqtt.publish(T_STAT_MODE, "MANUAL", true);
       } else {
         turnDir = (autoRow % 2 == 0) ? 1 : -1;
-        resetYawRef();
+        resetGyroAngleRef();
         if (turnDir == 1) {
           motorsRight();
         } else {
@@ -595,20 +790,20 @@ void runAutoMode() {
         autoState = AUTO_TURNING_1;
       }
       break;
-      
+
     case AUTO_TURNING_1:
-      if (yawDelta() >= TURN_DONE_DEG) {
+      if (gyroAngleDelta() >= TURN_DONE_DEG) {
         motorsStop();
         resetEncoders();
         motorsForward();
         autoState = AUTO_SHIFTING;
       }
       break;
-      
+
     case AUTO_SHIFTING:
       if (avgDistCm() >= ROW_WIDTH_CM) {
         motorsStop();
-        resetYawRef();
+        resetGyroAngleRef();
         if (turnDir == 1) {
           motorsRight();
         } else {
@@ -617,17 +812,17 @@ void runAutoMode() {
         autoState = AUTO_TURNING_2;
       }
       break;
-      
+
     case AUTO_TURNING_2:
-      if (yawDelta() >= TURN_DONE_DEG) {
+      if (gyroAngleDelta() >= TURN_DONE_DEG) {
         motorsStop();
         autoState = AUTO_START_ROW;
       }
       break;
-      
+
     case AUTO_COMPLETE:
       motorsStop();
-      ledcWrite(0, 0);
+      setVacuumMotor(0);
       currentSuction = 0;
       break;
   }
