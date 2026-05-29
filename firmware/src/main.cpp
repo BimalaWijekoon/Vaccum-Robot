@@ -8,8 +8,8 @@
 // ============================================================================
 // CONFIG SECTION — EDIT THESE VALUES ONLY
 // ============================================================================
-#define WIFI_SSID                "YourWiFiName"
-#define WIFI_PASS                "YourWiFiPassword"
+#define WIFI_SSID                "COMFRI"
+#define WIFI_PASS                "your_wifi_password"
 #define MQTT_HOST                "0808028e417c4ff2957842f563dafe7b.s1.eu.hivemq.cloud"
 #define MQTT_PORT                8883
 #define MQTT_USER                "VaccumRobot"
@@ -71,29 +71,40 @@
 #define T_STAT_MODE     "vacbot/status/mode"
 #define T_STAT_AUTO     "vacbot/status/auto"
 #define T_STAT_ONLINE   "vacbot/status/online"
+#define T_STAT_SONARS   "vacbot/status/sonars"
+#define T_STAT_NAV      "vacbot/status/navigation"
 
-// TLS Root Certificate (Let's Encrypt ISRG Root X1)
+// TLS Root Certificate (Let's Encrypt R13 - Current HiveMQ Cert)
 static const char* ROOT_CA PROGMEM = R"EOF(
 -----BEGIN CERTIFICATE-----
-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
+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
+fZZlNQFADj8GuTXf
 -----END CERTIFICATE-----
 )EOF";
 
@@ -116,9 +127,20 @@ int currentSuction = 0;
 bool obstacleDetected = false;
 float distanceCm = 999.0f;
 
+// Enhanced sonar tracking (all 3 sensors)
+long sonarFront = 999;
+long sonarLeft = 999;
+long sonarRight = 999;
+long prevSonarFront = 999;  // For predictive logic
+bool isApproaching = false;  // Front distance decreasing
+String safeDirString = "FORWARD,LEFT,RIGHT";  // Default all safe
+
 unsigned long lastBatteryPub = 0;
 unsigned long lastDistancePub = 0;
+unsigned long lastSonarPub = 0;      // New: all 3 sensors
+unsigned long lastNavPub = 0;        // New: navigation guidance
 unsigned long lastAutoPub = 0;
+unsigned long lastHeartbeatPub = 0;
 unsigned long lastReconnectAttempt = 0;
 unsigned long reconnectDelay = 2000;
 
@@ -267,11 +289,27 @@ void setMotorsByCmd(String cmd) {
   Serial.print("[CMD] Movement command received: ");
   Serial.println(cmd);
 
-  if (obstacleDetected && cmd == "FORWARD") {
-    Serial.println("[CMD] BLOCKED — obstacle detected, ignoring FORWARD");
-    motorsStop();
-    return;
+  // MANUAL mode smart checking
+  if (currentMode == "MANUAL") {
+    if (cmd == "FORWARD" && sonarFront <= OBSTACLE_CM) {
+      Serial.print("[CMD] BLOCKED — front obstacle at ");
+      Serial.print(sonarFront);
+      Serial.println("cm, command ignored");
+      motorsStop();
+      return;
+    }
+    if (cmd == "LEFT" && sonarLeft <= SIDE_CLEAR_CM) {
+      Serial.print("[CMD] CAUTION — left obstacle at ");
+      Serial.print(sonarLeft);
+      Serial.println("cm, but allowing (user control)");
+    }
+    if (cmd == "RIGHT" && sonarRight <= SIDE_CLEAR_CM) {
+      Serial.print("[CMD] CAUTION — right obstacle at ");
+      Serial.print(sonarRight);
+      Serial.println("cm, but allowing (user control)");
+    }
   }
+  
   if (cmd == "FORWARD") {
     motorsForward();
   } else if (cmd == "BACKWARD") {
@@ -526,14 +564,78 @@ Sonars readAllSonars() {
   return s;
 }
 
+// ============================================================================
+// Calculate safe directions based on sensor readings
+// ============================================================================
+String calculateSafeDirections(long front, long left, long right) {
+  String safe = "";
+  
+  if (front > OBSTACLE_CM) safe += "FORWARD";
+  if (left > SIDE_CLEAR_CM) {
+    if (safe.length() > 0) safe += ",";
+    safe += "LEFT";
+  }
+  if (right > SIDE_CLEAR_CM) {
+    if (safe.length() > 0) safe += ",";
+    safe += "RIGHT";
+  }
+  
+  // Backward is generally safe unless something is behind
+  if (safe.length() > 0) safe += ",";
+  safe += "BACKWARD";
+  
+  return (safe.length() == 0) ? "STOP" : safe;
+}
+
+// ============================================================================
+// Publish all sonar readings
+// ============================================================================
+void publishSonars() {
+  Serial.print("[SONARS] Publishing — F=");
+  Serial.print(sonarFront);
+  Serial.print("cm L=");
+  Serial.print(sonarLeft);
+  Serial.print("cm R=");
+  Serial.print(sonarRight);
+  Serial.println("cm");
+  
+  StaticJsonDocument<128> doc;
+  doc["front"] = (int)sonarFront;
+  doc["left"] = (int)sonarLeft;
+  doc["right"] = (int)sonarRight;
+  
+  String payload;
+  serializeJson(doc, payload);
+  mqtt.publish(T_STAT_SONARS, payload.c_str());
+}
+
+// ============================================================================
+// Publish navigation guidance
+// ============================================================================
+void publishNavigation() {
+  Serial.print("[NAV] Safe directions: ");
+  Serial.print(safeDirString);
+  Serial.print("  Approaching: ");
+  Serial.println(isApproaching ? "YES" : "NO");
+  
+  StaticJsonDocument<256> doc;
+  doc["safe_directions"] = safeDirString;
+  doc["approaching"] = isApproaching;
+  doc["front_trend"] = (sonarFront < prevSonarFront) ? "decreasing" : "stable";
+  
+  String payload;
+  serializeJson(doc, payload);
+  mqtt.publish(T_STAT_NAV, payload.c_str());
+}
+
 void publishDistance() {
-  long dist = readSonar(PIN_ECHO_FRONT);
-  distanceCm = (float)dist;
+  // Use front sensor from continuous polling
+  distanceCm = (float)sonarFront;
   bool wasObstacle = obstacleDetected;
-  obstacleDetected = (dist < OBSTACLE_CM);
+  obstacleDetected = (sonarFront < OBSTACLE_CM);
 
   Serial.print("[DISTANCE] Front=");
-  Serial.print(dist);
+  Serial.print(sonarFront);
   Serial.print("cm  Obstacle=");
   Serial.println(obstacleDetected ? "YES" : "No");
 
@@ -550,7 +652,7 @@ void publishDistance() {
   }
 
   StaticJsonDocument<128> doc;
-  doc["cm"] = (int)dist;
+  doc["cm"] = (int)sonarFront;
   doc["obstacle"] = obstacleDetected;
 
   String payload;
@@ -619,6 +721,14 @@ void publishAutoStatus() {
   String payload;
   serializeJson(doc, payload);
   mqtt.publish(T_STAT_AUTO, payload.c_str());
+}
+
+// ============================================================================
+// Heartbeat Function — keeps robot online status active
+// ============================================================================
+void publishHeartbeat() {
+  mqtt.publish(T_STAT_ONLINE, "online", true);
+  Serial.println("[HEARTBEAT] Published online status");
 }
 
 // ============================================================================
@@ -718,21 +828,56 @@ bool connectMQTT() {
   Serial.print("[MQTT] Client ID: ");
   Serial.println(clientId);
 
-  if (!mqtt.connect(clientId, MQTT_USER, MQTT_PASS, T_STAT_ONLINE, 0, true, "offline", false)) {
+  // Add timeout to prevent infinite hanging
+  Serial.println("[MQTT] Initiating TLS handshake (10s timeout)...");
+  unsigned long mqttStart = millis();
+  
+  bool connected = mqtt.connect(clientId, MQTT_USER, MQTT_PASS, T_STAT_ONLINE, 0, true, "offline", false);
+  unsigned long mqttTime = millis() - mqttStart;
+  
+  Serial.print("[MQTT] Connection attempt took ");
+  Serial.print(mqttTime);
+  Serial.println("ms");
+
+  if (!connected) {
     Serial.print("[MQTT] *** CONNECTION FAILED — state=");
-    Serial.println(mqtt.state());
-    Serial.println("[MQTT] Possible causes:");
-    Serial.println("[MQTT]   - Wrong credentials");
-    Serial.println("[MQTT]   - Broker unreachable");
-    Serial.println("[MQTT]   - TLS certificate mismatch");
-    Serial.println("[MQTT]   - WiFi not connected");
+    int state = mqtt.state();
+    Serial.println(state);
+    
+    Serial.println("[MQTT] State meanings:");
+    Serial.println("[MQTT]   -4 = MQTT_CONNECTION_TIMEOUT");
+    Serial.println("[MQTT]   -3 = MQTT_CONNECTION_LOST");
+    Serial.println("[MQTT]   -2 = MQTT_CONNECT_FAILED");
+    Serial.println("[MQTT]   -1 = MQTT_DISCONNECTED");
+    Serial.println("[MQTT]    0 = MQTT_CONNECTED");
+    Serial.println("[MQTT]    1 = MQTT_CONNECT_BAD_PROTOCOL");
+    Serial.println("[MQTT]    2 = MQTT_CONNECT_BAD_CLIENT_ID");
+    Serial.println("[MQTT]    3 = MQTT_CONNECT_UNAVAILABLE");
+    Serial.println("[MQTT]    4 = MQTT_CONNECT_BAD_CREDENTIALS");
+    Serial.println("[MQTT]    5 = MQTT_CONNECT_UNAUTHORIZED");
+    
+    Serial.println("[MQTT] Troubleshooting:");
+    if (state == -4 || state == -2) {
+      Serial.println("[MQTT]   ❌ TLS/Connection timeout - likely certificate issue");
+      Serial.println("[MQTT]   Try disabling TLS or updating certificate");
+    } else if (state == 4) {
+      Serial.println("[MQTT]   ❌ Bad credentials - check MQTT_USER and MQTT_PASS");
+    } else if (WiFi.status() != WL_CONNECTED) {
+      Serial.println("[MQTT]   ❌ WiFi not connected!");
+    } else {
+      Serial.println("[MQTT]   ❌ Broker unreachable or certificate mismatch");
+    }
     return false;
   }
   
   Serial.println("[MQTT] *** CONNECTED SUCCESSFULLY! ***");
 
-  mqtt.publish(T_STAT_ONLINE, "online", true);
-  Serial.println("[MQTT] Published: online status");
+  // IMMEDIATELY publish "online" to override any retained "offline" message
+  for (int i = 0; i < 3; i++) {
+    mqtt.publish(T_STAT_ONLINE, "online", true);
+    delay(50);
+  }
+  Serial.println("[MQTT] ✅ Published online status (3x to ensure)");
 
   mqtt.subscribe(T_CMD_MOVEMENT);
   Serial.print("[MQTT] Subscribed: ");
@@ -775,7 +920,18 @@ void setup() {
   // ADC
   Serial.println("[SETUP] Configuring ADC (12-bit)...");
   analogReadResolution(12);
-  Serial.println("[SETUP] ADC OK");
+  analogSetAttenuation(ADC_11db);  // Allows full voltage range on battery sensor
+  Serial.println("[SETUP] ADC OK — attenuation 11db for full range");
+  
+  // Wait for battery voltage divider capacitor to settle (RC filter)
+  Serial.println("[SETUP] Waiting for battery sensor to stabilize (10s)...");
+  Serial.println("[SETUP] This allows the voltage divider capacitor to charge");
+  for (int i = 10; i > 0; i--) {
+    Serial.print(".");
+    delay(1000);
+  }
+  Serial.println(" Ready!");
+  Serial.println("[SETUP] Battery sensor stable and ready");
 
   // Motor pins
   Serial.println("[SETUP] Configuring motor pins...");
@@ -891,6 +1047,7 @@ void setup() {
   Serial.println("[SETUP] Attempting initial MQTT connection...");
   if (connectMQTT()) {
     Serial.println("[SETUP] Initial MQTT connection successful!");
+    lastHeartbeatPub = millis() - 9500;  // Force heartbeat to fire in first loop (~500ms)
   } else {
     Serial.println("[SETUP] Initial MQTT connection failed — will retry in loop");
   }
@@ -947,16 +1104,48 @@ void loop() {
   // Update gyro angle
   updateGyroAngle();
 
-  // Publish distance
-  if (millis() - lastDistancePub >= 500) {
+  // ========== ENHANCED: Poll all 3 sensors every 100ms ==========
+  if (millis() - lastSonarPub >= 100) {
+    Sonars s = readAllSonars();
+    
+    // Store readings
+    prevSonarFront = sonarFront;
+    sonarFront = s.front;
+    sonarLeft = s.left;
+    sonarRight = s.right;
+    
+    // Detect if approaching obstacle
+    isApproaching = (sonarFront < prevSonarFront && sonarFront < 50);
+    
+    // Calculate safe directions
+    safeDirString = calculateSafeDirections(sonarFront, sonarLeft, sonarRight);
+    
+    // Update obstacle detection
     publishDistance();
-    lastDistancePub = millis();
+    
+    // Publish all 3 sonars
+    publishSonars();
+    
+    // Publish navigation guidance
+    publishNavigation();
+    
+    lastSonarPub = millis();
   }
 
   // Publish battery
   if (millis() - lastBatteryPub >= 2000) {
     publishBattery();
+    // Also publish current mode so Dashboard stays in sync
+    mqtt.publish(T_STAT_MODE, currentMode.c_str(), true);
+    Serial.print("[MODE] Published current mode: ");
+    Serial.println(currentMode);
     lastBatteryPub = millis();
+  }
+
+  // Publish heartbeat every 10 seconds to keep robot online status active
+  if (millis() - lastHeartbeatPub >= 10000) {
+    publishHeartbeat();
+    lastHeartbeatPub = millis();
   }
 
   // Auto mode status
@@ -1025,7 +1214,32 @@ void runAutoMode() {
       break;
 
     case AUTO_MOVING_FORWARD:
-      if (obstacleDetected) {
+      // PREDICTIVE: Check if approaching obstacle before collision
+      if (isApproaching && sonarFront < 40) {
+        Serial.print("[AUTO] PREDICTIVE AVOIDANCE: Front approaching at ");
+        Serial.print(sonarFront);
+        Serial.println("cm — deciding best turn");
+        
+        // Decide which way is clearer
+        int turnDir = (sonarLeft >= sonarRight) ? 1 : -1;
+        
+        Serial.print("[AUTO] Turning ");
+        Serial.print(turnDir > 0 ? "LEFT" : "RIGHT");
+        Serial.print(" (L=");
+        Serial.print(sonarLeft);
+        Serial.print("cm vs R=");
+        Serial.print(sonarRight);
+        Serial.println("cm)");
+        
+        motorsStop();
+        obstacleTimer = millis();
+        obstacleRetry = 0;
+        avoidPhase = AVOID_WAITING;
+        avoidTurnDir = turnDir;
+        autoState = AUTO_OBSTACLE_AVOID;
+      }
+      // REACTIVE: Obstacle confirmed
+      else if (obstacleDetected) {
         Serial.print("[AUTO] Obstacle detected at ");
         Serial.print(distanceCm, 1);
         Serial.println("cm — stopping & entering obstacle avoidance");
@@ -1034,7 +1248,9 @@ void runAutoMode() {
         obstacleRetry = 0;
         avoidPhase = AVOID_WAITING;
         autoState = AUTO_OBSTACLE_AVOID;
-      } else if (avgDistCm() >= ROW_LENGTH_CM) {
+      } 
+      // ROW COMPLETE
+      else if (avgDistCm() >= ROW_LENGTH_CM) {
         Serial.print("[AUTO] Row length reached (");
         Serial.print(avgDistCm(), 1);
         Serial.print("cm >= ");

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { MqttProvider, useMqtt } from './MqttContext';
-import { Activity, Gamepad2, Settings, Navigation, WifiOff, Wifi } from 'lucide-react';
+import { Activity, Gamepad2, Settings, Navigation, WifiOff, Wifi, Radar } from 'lucide-react';
 import DashboardTab from './components/DashboardTab';
 import DriveTab from './components/DriveTab';
 import AutoTab from './components/AutoTab';
+import { RadarTab } from './components/RadarTab';
 
 const AppContent = () => {
   const { isConnected, robotMode } = useMqtt();
@@ -36,6 +37,9 @@ const AppContent = () => {
         <div className={`tab-wrapper ${activeTab === 'auto' ? 'active' : ''}`}>
           <AutoTab />
         </div>
+        <div className={`tab-wrapper ${activeTab === 'radar' ? 'active' : ''}`}>
+          <RadarTab />
+        </div>
       </main>
 
       {/* Bottom Navigation */}
@@ -53,6 +57,13 @@ const AppContent = () => {
         >
           <Gamepad2 size={24} />
           <span>Drive</span>
+        </button>
+        <button 
+          className={`nav-btn ${activeTab === 'radar' ? 'active' : ''}`}
+          onClick={() => setActiveTab('radar')}
+        >
+          <Radar size={24} />
+          <span>Radar</span>
         </button>
         <button 
           className={`nav-btn ${activeTab === 'auto' ? 'active' : ''}`}

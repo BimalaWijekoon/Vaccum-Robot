@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import mqtt from 'mqtt';
 
-const MqttContext = createContext(null);
+export const MqttContext = createContext(null);
 
 export const useMqtt = () => useContext(MqttContext);
 
@@ -16,6 +16,8 @@ const CONFIG = {
 export const MqttProvider = ({ children }) => {
   const [client, setClient] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [mqttConnected, setMqttConnected] = useState(false);  // Dashboard ↔ MQTT broker
+  const [robotOnline, setRobotOnline] = useState(false);     // Robot ↔ MQTT broker
   
   // App State matching firmware payloads
   const [robotMode, setRobotMode] = useState('MANUAL');
@@ -42,24 +44,39 @@ export const MqttProvider = ({ children }) => {
     coverage_pct: 0
   });
 
+  // New: Sonar and Navigation data
+  const [sonars, setSonars] = useState({
+    front: 999,
+    left: 999,
+    right: 999
+  });
+
+  const [navigation, setNavigation] = useState({
+    safe_directions: 'FORWARD,LEFT,RIGHT',
+    approaching: false,
+    front_trend: 'stable'
+  });
+
   const connect = () => {
     if (client) return;
 
     const clientId = `vacbot-app-${Math.random().toString(16).substring(2, 8)}`;
     const mqttUrl = `wss://${CONFIG.host}:${CONFIG.port}/mqtt`;
     
-    console.log("Connecting to MQTT: ", mqttUrl);
+    console.log("[MQTT-Dashboard] Connecting to:", mqttUrl);
     
     const mqttClient = mqtt.connect(mqttUrl, {
       username: CONFIG.username,
       password: CONFIG.password,
       clientId: clientId,
       reconnectPeriod: 5000,
+      connectTimeout: 10000,
+      rejectUnauthorized: false  // Allow self-signed certificates
     });
 
     mqttClient.on('connect', () => {
-      console.log("MQTT Connected");
-      setIsConnected(true);
+      console.log("[MQTT-Dashboard] ✅ Connected to MQTT broker");
+      setMqttConnected(true);
       
       const prefix = CONFIG.topicPrefix;
       mqttClient.subscribe(`${prefix}/status/battery`);
@@ -67,6 +84,9 @@ export const MqttProvider = ({ children }) => {
       mqttClient.subscribe(`${prefix}/status/mode`);
       mqttClient.subscribe(`${prefix}/status/auto`);
       mqttClient.subscribe(`${prefix}/status/online`);
+      mqttClient.subscribe(`${prefix}/status/sonars`);      // NEW
+      mqttClient.subscribe(`${prefix}/status/navigation`);  // NEW
+      console.log("[MQTT-Dashboard] Subscribed to all robot status topics");
     });
 
     mqttClient.on('message', (topic, payload) => {
@@ -75,44 +95,86 @@ export const MqttProvider = ({ children }) => {
 
       try {
         if (topic === `${prefix}/status/battery`) {
+          console.log("[MQTT-RX] Battery:", msg);
           setBattery(JSON.parse(msg));
         } else if (topic === `${prefix}/status/distance`) {
+          console.log("[MQTT-RX] Distance:", msg);
           setDistance(JSON.parse(msg));
         } else if (topic === `${prefix}/status/mode`) {
+          console.log("[MQTT-RX] Mode:", msg);
           setRobotMode(msg);
         } else if (topic === `${prefix}/status/auto`) {
+          console.log("[MQTT-RX] Auto:", msg);
           setAutoState(JSON.parse(msg));
         } else if (topic === `${prefix}/status/online`) {
-          if(msg === 'offline') setIsConnected(false);
+          console.log("[MQTT-RX] Robot online status:", msg);
+          // Robot is online if it sends any message on the online topic
+          if (msg === 'online') {
+            setRobotOnline(true);
+            console.log("[MQTT-Dashboard] ✅ Robot is ONLINE");
+          } else if (msg === 'offline') {
+            setRobotOnline(false);
+            console.log("[MQTT-Dashboard] ❌ Robot went OFFLINE");
+          }
+        } else if (topic === `${prefix}/status/sonars`) {
+          console.log("[MQTT-RX] Sonars:", msg);
+          setSonars(JSON.parse(msg));
+        } else if (topic === `${prefix}/status/navigation`) {
+          console.log("[MQTT-RX] Navigation:", msg);
+          setNavigation(JSON.parse(msg));
         }
       } catch (e) {
-        console.error("Failed parsing MQTT msg:", msg, e);
+        console.error("[MQTT-ERROR] Failed parsing message on topic", topic, ":", msg, e);
       }
     });
 
     mqttClient.on('error', (err) => {
-      console.error("MQTT Error:", err);
+      console.error("[MQTT-ERROR] Connection error:", err.message);
+      setMqttConnected(false);
+      setRobotOnline(false);
     });
 
     mqttClient.on('close', () => {
-      setIsConnected(false);
+      console.log("[MQTT-Dashboard] Disconnected from broker");
+      setMqttConnected(false);
+      setRobotOnline(false);
+    });
+
+    mqttClient.on('offline', () => {
+      console.log("[MQTT-Dashboard] Client went offline");
+      setMqttConnected(false);
     });
 
     setClient(mqttClient);
   };
 
   const publishCommand = (topicSuffix, payload) => {
-    if (client && isConnected) {
-      client.publish(`${CONFIG.topicPrefix}/${topicSuffix}`, String(payload));
+    if (!client || !mqttConnected) {
+      console.warn("[MQTT-WARN] Cannot publish - MQTT not connected");
+      return false;
     }
+    if (!robotOnline) {
+      console.warn("[MQTT-WARN] Cannot publish - Robot is offline");
+      return false;
+    }
+    console.log("[MQTT-TX] Publishing to", topicSuffix, ":", payload);
+    client.publish(`${CONFIG.topicPrefix}/${topicSuffix}`, String(payload));
+    return true;
   };
 
-  const setMovement = (cmd) => publishCommand('cmd/movement', cmd);
+  const setMovement = (cmd) => {
+    console.log("[CMD] Movement command:", cmd);
+    publishCommand('cmd/movement', cmd);
+  };
+  
   const sendSuction = (val) => {
+    console.log("[CMD] Suction command:", val);
     setSuction(val);
     publishCommand('cmd/suction', val);
   };
+  
   const sendMode = (mode) => {
+    console.log("[CMD] Mode command:", mode);
     // Optimistic update
     setRobotMode(mode);
     publishCommand('cmd/mode', mode);
@@ -128,11 +190,16 @@ export const MqttProvider = ({ children }) => {
 
   return (
     <MqttContext.Provider value={{
-      isConnected,
+      isConnected: robotOnline,      // True only if robot is online
+      mqttConnected,                 // True if Dashboard↔Broker connected
+      robotOnline,                   // True if Robot↔Broker connected
       battery,
       distance,
       autoState,
+      sonars,                        // NEW
+      navigation,                    // NEW
       robotMode,
+      mode: robotMode,               // Alias for convenience
       suction,
       setMovement,
       sendSuction,

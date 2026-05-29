@@ -8,8 +8,8 @@
 // ============================================================================
 // CONFIG SECTION — EDIT THESE VALUES ONLY
 // ============================================================================
-#define WIFI_SSID                "YourWiFiName"
-#define WIFI_PASS                "YourWiFiPassword"
+#define WIFI_SSID                "COMFRI"
+#define WIFI_PASS                "1234567890"
 #define MQTT_HOST                "0808028e417c4ff2957842f563dafe7b.s1.eu.hivemq.cloud"
 #define MQTT_PORT                8883
 #define MQTT_USER                "VaccumRobot"
@@ -72,28 +72,37 @@
 #define T_STAT_AUTO     "vacbot/status/auto"
 #define T_STAT_ONLINE   "vacbot/status/online"
 
-// TLS Root Certificate (Let's Encrypt ISRG Root X1)
+// TLS Root Certificate (Let's Encrypt R13 - Current HiveMQ Cert)
 static const char* ROOT_CA PROGMEM = R"EOF(
 -----BEGIN CERTIFICATE-----
-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
+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
+fZZlNQFADj8GuTXf
 -----END CERTIFICATE-----
 )EOF";
 
@@ -119,8 +128,13 @@ float distanceCm = 999.0f;
 unsigned long lastBatteryPub = 0;
 unsigned long lastDistancePub = 0;
 unsigned long lastAutoPub = 0;
+unsigned long lastHeartbeatPub = 0;
 unsigned long lastReconnectAttempt = 0;
 unsigned long reconnectDelay = 2000;
+
+// Serial log throttle for high-frequency updates
+unsigned long lastGyroLog = 0;
+unsigned long lastLoopLog = 0;
 
 // Ultrasonic sensor results
 struct Sonars {
@@ -149,6 +163,7 @@ enum AvoidPhase {
 };
 
 AutoState autoState = AUTO_IDLE;
+AutoState prevAutoState = AUTO_IDLE;   // Track state changes for logging
 AvoidPhase avoidPhase = AVOID_WAITING;
 int avoidTurnDir = 0; // 1=left, -1=right
 int autoRow = 0;
@@ -175,12 +190,23 @@ void IRAM_ATTR rightEncoderISR() {
 void setRGB(uint8_t r, uint8_t g, uint8_t b) {
   rgb.setPixelColor(0, rgb.Color(r, g, b));
   rgb.show();
+  Serial.print("[RGB] Set color -> R=");
+  Serial.print(r);
+  Serial.print(" G=");
+  Serial.print(g);
+  Serial.print(" B=");
+  Serial.println(b);
 }
 
 // ============================================================================
 // Motor Control Functions (from main.cpp — dual H-bridge with speed PWM)
 // ============================================================================
 void setLeftMotor(int speed, int direction) {
+  Serial.print("[MOTOR-L] Speed=");
+  Serial.print(abs(speed));
+  Serial.print(" Dir=");
+  Serial.println(direction > 0 ? "FWD" : (direction < 0 ? "REV" : "STOP"));
+
   analogWrite(PIN_LEFT_ENA, constrain(abs(speed), 0, 255));
   if (direction > 0) {
     digitalWrite(PIN_LEFT_IN1, HIGH);
@@ -195,6 +221,11 @@ void setLeftMotor(int speed, int direction) {
 }
 
 void setRightMotor(int speed, int direction) {
+  Serial.print("[MOTOR-R] Speed=");
+  Serial.print(abs(speed));
+  Serial.print(" Dir=");
+  Serial.println(direction > 0 ? "FWD" : (direction < 0 ? "REV" : "STOP"));
+
   analogWrite(PIN_RIGHT_ENB, constrain(abs(speed), 0, 255));
   if (direction > 0) {
     digitalWrite(PIN_RIGHT_IN3, HIGH);
@@ -209,6 +240,7 @@ void setRightMotor(int speed, int direction) {
 }
 
 void motorsStop() {
+  Serial.println("[MOTOR] >>> STOP all motors");
   analogWrite(PIN_LEFT_ENA, 0);
   analogWrite(PIN_RIGHT_ENB, 0);
   digitalWrite(PIN_LEFT_IN1, LOW);
@@ -218,27 +250,35 @@ void motorsStop() {
 }
 
 void motorsForward() {
+  Serial.println("[MOTOR] >>> FORWARD");
   setLeftMotor(DRIVE_SPEED, 1);
   setRightMotor(DRIVE_SPEED, 1);
 }
 
 void motorsBackward() {
+  Serial.println("[MOTOR] >>> BACKWARD");
   setLeftMotor(DRIVE_SPEED, -1);
   setRightMotor(DRIVE_SPEED, -1);
 }
 
 void motorsLeft() {
+  Serial.println("[MOTOR] >>> PIVOT LEFT");
   setLeftMotor(PIVOT_SPEED, -1);
   setRightMotor(PIVOT_SPEED, 1);
 }
 
 void motorsRight() {
+  Serial.println("[MOTOR] >>> PIVOT RIGHT");
   setLeftMotor(PIVOT_SPEED, 1);
   setRightMotor(PIVOT_SPEED, -1);
 }
 
 void setMotorsByCmd(String cmd) {
+  Serial.print("[CMD] Movement command received: ");
+  Serial.println(cmd);
+
   if (obstacleDetected && cmd == "FORWARD") {
+    Serial.println("[CMD] BLOCKED — obstacle detected, ignoring FORWARD");
     motorsStop();
     return;
   }
@@ -252,6 +292,9 @@ void setMotorsByCmd(String cmd) {
     motorsRight();
   } else if (cmd == "STOP") {
     motorsStop();
+  } else {
+    Serial.print("[CMD] Unknown movement command: ");
+    Serial.println(cmd);
   }
 }
 
@@ -260,14 +303,19 @@ void setMotorsByCmd(String cmd) {
 // ============================================================================
 void setVacuumMotor(int speed) {
   speed = constrain(speed, 0, 255);
+  Serial.print("[VACUUM] Set speed -> ");
+  Serial.println(speed);
+
   if (speed == 0) {
     analogWrite(PIN_VAC_PWM, 0);
     digitalWrite(PIN_VAC_IN1, LOW);
     digitalWrite(PIN_VAC_IN2, LOW);
+    Serial.println("[VACUUM] Motor OFF");
   } else {
     digitalWrite(PIN_VAC_IN1, HIGH);
     digitalWrite(PIN_VAC_IN2, LOW);
     analogWrite(PIN_VAC_PWM, speed);
+    Serial.println("[VACUUM] Motor ON");
   }
 }
 
@@ -275,6 +323,10 @@ void setVacuumMotor(int speed) {
 // Encoder Functions
 // ============================================================================
 void resetEncoders() {
+  Serial.print("[ENCODER] Reset — was L=");
+  Serial.print(leftPulses);
+  Serial.print(" R=");
+  Serial.println(rightPulses);
   leftPulses = 0;
   rightPulses = 0;
 }
@@ -287,7 +339,10 @@ float avgDistCm() {
 // Gyro/IMU Functions (from main.cpp — with bias and sign correction)
 // ============================================================================
 void calibrateGyro() {
-  Serial.println("\nKeep robot still for calibration...");
+  Serial.println("========================================");
+  Serial.println("[GYRO] Starting calibration...");
+  Serial.println("[GYRO] Keep robot STILL for 3 seconds!");
+  Serial.println("========================================");
   float sumZ = 0;
   int samples = 0;
   unsigned long start = millis();
@@ -299,12 +354,15 @@ void calibrateGyro() {
     delay(5);
   }
   gyroBiasZ = sumZ / samples;
-  Serial.print("Gyro Bias Z = ");
+  Serial.print("[GYRO] Calibration complete — samples=");
+  Serial.print(samples);
+  Serial.print(" biasZ=");
   Serial.println(gyroBiasZ, 6);
 }
 
 void determineGyroSign() {
-  Serial.println("Checking gyro direction...");
+  Serial.println("[GYRO] Determining gyro sign direction...");
+  Serial.println("[GYRO] Robot will briefly pivot left...");
   gyroAngle = 0;
   lastGyroMs = millis();
   motorsLeft();  // brief pivot left
@@ -320,7 +378,11 @@ void determineGyroSign() {
   motorsStop();
   delay(300);
   gyroSign = (gyroAngle < 0) ? -1.0f : 1.0f;
-  Serial.println("Gyro sign configured.");
+  Serial.print("[GYRO] Raw angle during test = ");
+  Serial.print(gyroAngle, 2);
+  Serial.print(" => gyroSign = ");
+  Serial.println(gyroSign, 0);
+  Serial.println("[GYRO] Sign calibration complete.");
   gyroAngle = 0;
 }
 
@@ -334,9 +396,24 @@ void updateGyroAngle() {
   float correctedZ = (g.gyro.z - gyroBiasZ) * gyroSign;
   gyroAngle += correctedZ * (180.0f / PI) * dt;
   lastGyroMs = millis();
+
+  // Throttled log: print gyro angle every 2 seconds
+  if (millis() - lastGyroLog >= 2000) {
+    Serial.print("[GYRO] Angle=");
+    Serial.print(gyroAngle, 1);
+    Serial.print("° delta=");
+    Serial.print(gyroAngleDelta(), 1);
+    Serial.println("°");
+    lastGyroLog = millis();
+  }
 }
 
 void resetGyroAngleRef() {
+  Serial.print("[GYRO] Reset angle ref — was ");
+  Serial.print(gyroAngleRef, 1);
+  Serial.print("° now ");
+  Serial.print(gyroAngle, 1);
+  Serial.println("°");
   gyroAngleRef = gyroAngle;
 }
 
@@ -370,6 +447,16 @@ void publishBattery() {
   String health = voltageToHealth(percent);
   bool alert = (percent < 25);
 
+  Serial.println("----------------------------------------");
+  Serial.print("[BATTERY] V=");
+  Serial.print(voltage, 2);
+  Serial.print("V  %=");
+  Serial.print(percent);
+  Serial.print("  Health=");
+  Serial.print(health);
+  Serial.print("  Alert=");
+  Serial.println(alert ? "YES!" : "No");
+
   // RGB LED battery color indication (from main.cpp)
   if (percent > 70) {
     setRGB(0, 255, 0);       // GREEN
@@ -383,13 +470,18 @@ void publishBattery() {
 
   // Auto vacuum speed control based on battery
   if (currentMode == "AUTO" && !alert) {
-    setVacuumMotor(percent > 70 ? VACUUM_TURBO_SPEED : VACUUM_ECO_SPEED);
+    int vacSpeed = percent > 70 ? VACUUM_TURBO_SPEED : VACUUM_ECO_SPEED;
+    Serial.print("[BATTERY] Auto vacuum speed adjust -> ");
+    Serial.println(vacSpeed);
+    setVacuumMotor(vacSpeed);
   }
 
   if (alert) {
+    Serial.println("[BATTERY] *** CRITICAL ALERT — SHUTTING DOWN MOTORS ***");
     motorsStop();
     setVacuumMotor(0);
     if (currentMode == "AUTO") {
+      Serial.println("[BATTERY] Forcing mode change: AUTO -> MANUAL (low battery)");
       autoState = AUTO_IDLE;
       currentMode = "MANUAL";
       mqtt.publish(T_STAT_MODE, "MANUAL", true);
@@ -405,6 +497,9 @@ void publishBattery() {
   String payload;
   serializeJson(doc, payload);
   mqtt.publish(T_STAT_BATTERY, payload.c_str(), true);
+  Serial.print("[BATTERY] Published MQTT -> ");
+  Serial.println(payload);
+  Serial.println("----------------------------------------");
 }
 
 // ============================================================================
@@ -429,15 +524,38 @@ Sonars readAllSonars() {
   delay(30);
   s.right = readSonar(PIN_ECHO_RIGHT);
   delay(30);
+
+  Serial.print("[SONAR] Front=");
+  Serial.print(s.front);
+  Serial.print("cm  Left=");
+  Serial.print(s.left);
+  Serial.print("cm  Right=");
+  Serial.print(s.right);
+  Serial.println("cm");
+
   return s;
 }
 
 void publishDistance() {
   long dist = readSonar(PIN_ECHO_FRONT);
   distanceCm = (float)dist;
+  bool wasObstacle = obstacleDetected;
   obstacleDetected = (dist < OBSTACLE_CM);
 
+  Serial.print("[DISTANCE] Front=");
+  Serial.print(dist);
+  Serial.print("cm  Obstacle=");
+  Serial.println(obstacleDetected ? "YES" : "No");
+
+  // Log obstacle state changes
+  if (obstacleDetected && !wasObstacle) {
+    Serial.println("[DISTANCE] *** OBSTACLE DETECTED! ***");
+  } else if (!obstacleDetected && wasObstacle) {
+    Serial.println("[DISTANCE] Obstacle cleared.");
+  }
+
   if (obstacleDetected && currentMode == "MANUAL") {
+    Serial.println("[DISTANCE] Manual mode — stopping motors due to obstacle");
     motorsStop();
   }
 
@@ -479,6 +597,27 @@ void publishAutoStatus() {
   float leftDist = leftPulses * DIST_PER_PULSE;
   float rightDist = rightPulses * DIST_PER_PULSE;
   
+  Serial.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+  Serial.print("[AUTO-STATUS] State=");
+  Serial.print(autoStateName());
+  Serial.print("  Row=");
+  Serial.print(autoRow);
+  Serial.print("/");
+  Serial.print(MAX_ROWS);
+  Serial.print("  Coverage=");
+  Serial.print((int)coveragePct);
+  Serial.println("%");
+  Serial.print("[AUTO-STATUS] Yaw=");
+  Serial.print(gyroAngle, 1);
+  Serial.print("°  EncL=");
+  Serial.print(leftDist, 1);
+  Serial.print("cm  EncR=");
+  Serial.print(rightDist, 1);
+  Serial.print("cm  Avg=");
+  Serial.print(avgDistCm(), 1);
+  Serial.println("cm");
+  Serial.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+
   StaticJsonDocument<384> doc;
   doc["state"] = autoStateName();
   doc["row"] = autoRow;
@@ -493,6 +632,14 @@ void publishAutoStatus() {
 }
 
 // ============================================================================
+// Heartbeat Function — keeps robot online status active
+// ============================================================================
+void publishHeartbeat() {
+  mqtt.publish(T_STAT_ONLINE, "online", true);
+  Serial.println("[HEARTBEAT] Published online status");
+}
+
+// ============================================================================
 // MQTT Callback
 // ============================================================================
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
@@ -500,41 +647,85 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   for (unsigned int i = 0; i < length; i++) {
     p += (char)payload[i];
   }
+
+  Serial.println("========================================");
+  Serial.print("[MQTT-RX] Topic: ");
+  Serial.println(topic);
+  Serial.print("[MQTT-RX] Payload: ");
+  Serial.println(p);
+  Serial.print("[MQTT-RX] Length: ");
+  Serial.println(length);
   
   if (strcmp(topic, T_CMD_MOVEMENT) == 0) {
+    Serial.print("[MQTT-RX] Movement command — currentMode=");
+    Serial.println(currentMode);
     if (currentMode == "MANUAL") {
+      Serial.println("[MQTT-RX] Executing movement command...");
       setMotorsByCmd(p);
+    } else {
+      Serial.println("[MQTT-RX] IGNORED — not in MANUAL mode");
     }
   } else if (strcmp(topic, T_CMD_SUCTION) == 0) {
+    Serial.print("[MQTT-RX] Suction command — currentMode=");
+    Serial.println(currentMode);
     if (currentMode == "MANUAL") {
       int val = constrain(p.toInt(), 0, 255);
+      Serial.print("[MQTT-RX] Setting vacuum to ");
+      Serial.println(val);
       setVacuumMotor(val);
       currentSuction = val;
+    } else {
+      Serial.println("[MQTT-RX] IGNORED — not in MANUAL mode");
     }
   } else if (strcmp(topic, T_CMD_MODE) == 0) {
+    Serial.print("[MQTT-RX] Mode change request: ");
+    Serial.print(currentMode);
+    Serial.print(" -> ");
+    Serial.println(p);
+
     if (p == "AUTO") {
+      Serial.println("[MODE] *** SWITCHING TO AUTO MODE ***");
       currentMode = "AUTO";
       autoRow = 0;
       autoState = AUTO_START_ROW;
+      prevAutoState = AUTO_IDLE;
       coveragePct = 0.0f;
       resetEncoders();
       resetGyroAngleRef();
       // Auto vacuum speed set by publishBattery()
       mqtt.publish(T_STAT_MODE, "AUTO", true);
+      Serial.println("[MODE] Auto mode initialized — starting row 0");
     } else if (p == "MANUAL") {
+      Serial.println("[MODE] *** SWITCHING TO MANUAL MODE ***");
       currentMode = "MANUAL";
       motorsStop();
       setVacuumMotor(0);
       autoState = AUTO_IDLE;
       mqtt.publish(T_STAT_MODE, "MANUAL", true);
+      Serial.println("[MODE] Manual mode — motors stopped, vacuum off");
+    } else {
+      Serial.print("[MODE] Unknown mode requested: ");
+      Serial.println(p);
     }
+  } else {
+    Serial.print("[MQTT-RX] Unhandled topic: ");
+    Serial.println(topic);
   }
+  Serial.println("========================================");
 }
 
 // ============================================================================
 // MQTT Connect
 // ============================================================================
 bool connectMQTT() {
+  Serial.println("[MQTT] Attempting connection...");
+  Serial.print("[MQTT] Broker: ");
+  Serial.print(MQTT_HOST);
+  Serial.print(":");
+  Serial.println(MQTT_PORT);
+  Serial.print("[MQTT] User: ");
+  Serial.println(MQTT_USER);
+
   char clientId[32];
   uint64_t mac = ESP.getEfuseMac();
   snprintf(clientId, sizeof(clientId), "vacbot-%02llx%02llx%02llx",
@@ -542,15 +733,74 @@ bool connectMQTT() {
            (mac >> 32) & 0xFF,
            (mac >> 24) & 0xFF);
   
-  if (!mqtt.connect(clientId, MQTT_USER, MQTT_PASS, T_STAT_ONLINE, 0, true, "offline", false)) {
+  Serial.print("[MQTT] Client ID: ");
+  Serial.println(clientId);
+
+  // Add timeout to prevent infinite hanging
+  Serial.println("[MQTT] Initiating TLS handshake (10s timeout)...");
+  unsigned long mqttStart = millis();
+  
+  bool connected = mqtt.connect(clientId, MQTT_USER, MQTT_PASS, T_STAT_ONLINE, 0, true, "offline", false);
+  unsigned long mqttTime = millis() - mqttStart;
+  
+  Serial.print("[MQTT] Connection attempt took ");
+  Serial.print(mqttTime);
+  Serial.println("ms");
+
+  if (!connected) {
+    Serial.print("[MQTT] *** CONNECTION FAILED — state=");
+    int state = mqtt.state();
+    Serial.println(state);
+    
+    Serial.println("[MQTT] State meanings:");
+    Serial.println("[MQTT]   -4 = MQTT_CONNECTION_TIMEOUT");
+    Serial.println("[MQTT]   -3 = MQTT_CONNECTION_LOST");
+    Serial.println("[MQTT]   -2 = MQTT_CONNECT_FAILED");
+    Serial.println("[MQTT]   -1 = MQTT_DISCONNECTED");
+    Serial.println("[MQTT]    0 = MQTT_CONNECTED");
+    Serial.println("[MQTT]    1 = MQTT_CONNECT_BAD_PROTOCOL");
+    Serial.println("[MQTT]    2 = MQTT_CONNECT_BAD_CLIENT_ID");
+    Serial.println("[MQTT]    3 = MQTT_CONNECT_UNAVAILABLE");
+    Serial.println("[MQTT]    4 = MQTT_CONNECT_BAD_CREDENTIALS");
+    Serial.println("[MQTT]    5 = MQTT_CONNECT_UNAUTHORIZED");
+    
+    Serial.println("[MQTT] Troubleshooting:");
+    if (state == -4 || state == -2) {
+      Serial.println("[MQTT]   ❌ TLS/Connection timeout - likely certificate issue");
+      Serial.println("[MQTT]   Try disabling TLS or updating certificate");
+    } else if (state == 4) {
+      Serial.println("[MQTT]   ❌ Bad credentials - check MQTT_USER and MQTT_PASS");
+    } else if (WiFi.status() != WL_CONNECTED) {
+      Serial.println("[MQTT]   ❌ WiFi not connected!");
+    } else {
+      Serial.println("[MQTT]   ❌ Broker unreachable or certificate mismatch");
+    }
     return false;
   }
   
-  mqtt.publish(T_STAT_ONLINE, "online", true);
+  Serial.println("[MQTT] *** CONNECTED SUCCESSFULLY! ***");
+
+  // IMMEDIATELY publish "online" to override any retained "offline" message
+  for (int i = 0; i < 3; i++) {
+    mqtt.publish(T_STAT_ONLINE, "online", true);
+    delay(50);
+  }
+  Serial.println("[MQTT] ✅ Published online status (3x to ensure)");
+
   mqtt.subscribe(T_CMD_MOVEMENT);
+  Serial.print("[MQTT] Subscribed: ");
+  Serial.println(T_CMD_MOVEMENT);
+
   mqtt.subscribe(T_CMD_SUCTION);
+  Serial.print("[MQTT] Subscribed: ");
+  Serial.println(T_CMD_SUCTION);
+
   mqtt.subscribe(T_CMD_MODE);
+  Serial.print("[MQTT] Subscribed: ");
+  Serial.println(T_CMD_MODE);
+
   reconnectDelay = 2000;
+  Serial.println("[MQTT] Ready to receive commands.");
   return true;
 }
 
@@ -561,15 +811,38 @@ void setup() {
   Serial.begin(115200);
   delay(500);
 
+  Serial.println();
+  Serial.println("########################################");
+  Serial.println("#       VacBot Firmware v1.0           #");
+  Serial.println("#       ESP32-S3 Starting Up...        #");
+  Serial.println("########################################");
+  Serial.println();
+
   // RGB LED first
+  Serial.println("[SETUP] Initializing NeoPixel RGB LED...");
   rgb.begin();
   rgb.setBrightness(80);
   rgb.show();
+  Serial.println("[SETUP] NeoPixel OK");
 
   // ADC
+  Serial.println("[SETUP] Configuring ADC (12-bit)...");
   analogReadResolution(12);
+  analogSetAttenuation(ADC_11db);  // Allows full voltage range on battery sensor
+  Serial.println("[SETUP] ADC OK — attenuation 11db for full range");
+  
+  // Wait for battery voltage divider capacitor to settle (RC filter)
+  Serial.println("[SETUP] Waiting for battery sensor to stabilize (10s)...");
+  Serial.println("[SETUP] This allows the voltage divider capacitor to charge");
+  for (int i = 10; i > 0; i--) {
+    Serial.print(".");
+    delay(1000);
+  }
+  Serial.println(" Ready!");
+  Serial.println("[SETUP] Battery sensor stable and ready");
 
   // Motor pins
+  Serial.println("[SETUP] Configuring motor pins...");
   pinMode(PIN_LEFT_ENA, OUTPUT);
   pinMode(PIN_LEFT_IN1, OUTPUT);
   pinMode(PIN_LEFT_IN2, OUTPUT);
@@ -577,32 +850,45 @@ void setup() {
   pinMode(PIN_RIGHT_IN3, OUTPUT);
   pinMode(PIN_RIGHT_IN4, OUTPUT);
   motorsStop();
+  Serial.println("[SETUP] Drive motors OK — stopped");
 
   // Vacuum motor pins (TB6612FNG)
+  Serial.println("[SETUP] Configuring vacuum motor pins (TB6612FNG)...");
   pinMode(PIN_VAC_PWM, OUTPUT);
   pinMode(PIN_VAC_IN1, OUTPUT);
   pinMode(PIN_VAC_IN2, OUTPUT);
   analogWrite(PIN_VAC_PWM, 0);
   digitalWrite(PIN_VAC_IN1, LOW);
   digitalWrite(PIN_VAC_IN2, LOW);
+  Serial.println("[SETUP] Vacuum motor OK — off");
 
   // Ultrasonic (3 sensors, shared trigger)
+  Serial.println("[SETUP] Configuring ultrasonic sensors (3x, shared trigger)...");
   pinMode(PIN_TRIG, OUTPUT);
   pinMode(PIN_ECHO_FRONT, INPUT);
   pinMode(PIN_ECHO_LEFT, INPUT);
   pinMode(PIN_ECHO_RIGHT, INPUT);
   digitalWrite(PIN_TRIG, LOW);
+  Serial.println("[SETUP] Ultrasonic sensors OK");
 
   // Encoders
+  Serial.println("[SETUP] Configuring wheel encoders...");
   pinMode(PIN_ENC_LEFT, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(PIN_ENC_LEFT), leftEncoderISR, RISING);
   pinMode(PIN_ENC_RIGHT, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(PIN_ENC_RIGHT), rightEncoderISR, RISING);
+  Serial.println("[SETUP] Encoders OK — ISR attached");
 
   // I2C + MPU6050
+  Serial.println("[SETUP] Initializing I2C + MPU6050...");
+  Serial.print("[SETUP] I2C SDA=");
+  Serial.print(PIN_SDA);
+  Serial.print(" SCL=");
+  Serial.println(PIN_SCL);
   Wire.begin(PIN_SDA, PIN_SCL);
   if (!mpu.begin()) {
-    Serial.println("MPU6050 not found!");
+    Serial.println("[SETUP] *** MPU6050 NOT FOUND — HALTING! ***");
+    Serial.println("[SETUP] Check I2C wiring (SDA/SCL) and power");
     while (1) {
       setRGB(255, 0, 0);  // RED = error
       delay(100);
@@ -613,7 +899,7 @@ void setup() {
   mpu.setGyroRange(MPU6050_RANGE_500_DEG);
   mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
   lastGyroMs = millis();
-  Serial.println("MPU6050 connected");
+  Serial.println("[SETUP] MPU6050 OK — range=500dps, filter=21Hz");
   delay(1000);
 
   // Gyro calibration (runs once in setup — delay() allowed here)
@@ -621,36 +907,118 @@ void setup() {
   determineGyroSign();
 
   // WiFi
+  Serial.println();
+  Serial.println("[WIFI] ========== Connecting to WiFi ==========");
+  Serial.print("[WIFI] SSID: ");
+  Serial.println(WIFI_SSID);
   setRGB(0, 0, 255);  // BLUE = connecting
-  Serial.println("Connecting to WiFi...");
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   unsigned long wifiStart = millis();
+  int dotCount = 0;
+  Serial.print("[WIFI] Waiting");
   while (WiFi.status() != WL_CONNECTED && millis() - wifiStart < 10000) {
     delay(500);
+    Serial.print(".");
+    dotCount++;
+    if (dotCount % 20 == 0) Serial.println();
   }
-  setRGB(0, 255, 0);  // GREEN = connected
-  Serial.print("WiFi connected: ");
-  Serial.println(WiFi.localIP());
+  Serial.println();
+
+  if (WiFi.status() == WL_CONNECTED) {
+    setRGB(0, 255, 0);  // GREEN = connected
+    Serial.println("[WIFI] *** CONNECTED SUCCESSFULLY! ***");
+    Serial.print("[WIFI] IP Address: ");
+    Serial.println(WiFi.localIP());
+    Serial.print("[WIFI] MAC Address: ");
+    Serial.println(WiFi.macAddress());
+    Serial.print("[WIFI] RSSI: ");
+    Serial.print(WiFi.RSSI());
+    Serial.println(" dBm");
+    Serial.print("[WIFI] Channel: ");
+    Serial.println(WiFi.channel());
+  } else {
+    Serial.println("[WIFI] *** CONNECTION FAILED (timeout 10s) ***");
+    Serial.println("[WIFI] Will continue without WiFi — MQTT unavailable");
+    setRGB(255, 165, 0);  // ORANGE = WiFi failed
+  }
+  Serial.println("[WIFI] ==========================================");
+  Serial.println();
 
   // MQTT
+  Serial.println("[SETUP] Configuring MQTT TLS...");
   secureClient.setCACert(ROOT_CA);
   mqtt.setServer(MQTT_HOST, MQTT_PORT);
   mqtt.setCallback(mqttCallback);
   mqtt.setBufferSize(512);
+  Serial.println("[SETUP] MQTT configured — buffer=512 bytes");
 
-  connectMQTT();
+  Serial.println("[SETUP] Attempting initial MQTT connection...");
+  if (connectMQTT()) {
+    Serial.println("[SETUP] Initial MQTT connection successful!");
+    lastHeartbeatPub = millis() - 9500;  // Force heartbeat to fire in first loop (~500ms)
+  } else {
+    Serial.println("[SETUP] Initial MQTT connection failed!");
+    Serial.println("\n[MQTT] DIAGNOSTIC: Attempting fallback (insecure mode)...");
+    Serial.println("[MQTT] This will help identify if it's a certificate issue");
+    
+    // Reset and try WITHOUT TLS certificate verification
+    secureClient.setInsecure();  // Disable TLS verification
+    delay(1000);
+    
+    if (connectMQTT()) {
+      Serial.println("\n[MQTT] ✅ SUCCESS with insecure mode!");
+      Serial.println("[MQTT] This confirms it's a CERTIFICATE issue, not network");
+      Serial.println("[MQTT] The TLS cert in the code may be outdated");
+      lastHeartbeatPub = millis() - 9500;
+    } else {
+      Serial.println("\n[MQTT] Still failed with insecure mode");
+      Serial.println("[MQTT] This suggests a network/firewall issue, not certificate");
+    }
+  }
+
+  Serial.println();
+  Serial.println("########################################");
+  Serial.println("#       SETUP COMPLETE                 #");
+  Serial.print("#       Mode: ");
+  Serial.print(currentMode);
+  Serial.println("                #");
+  Serial.println("#       VacBot is ready!               #");
+  Serial.println("########################################");
+  Serial.println();
 }
 
 // ============================================================================
 // Loop
 // ============================================================================
 void loop() {
+  // Throttled loop heartbeat every 10 seconds
+  if (millis() - lastLoopLog >= 10000) {
+    Serial.print("[LOOP] Heartbeat — Mode=");
+    Serial.print(currentMode);
+    Serial.print("  MQTT=");
+    Serial.print(mqtt.connected() ? "OK" : "DISCONNECTED");
+    Serial.print("  WiFi=");
+    Serial.print(WiFi.status() == WL_CONNECTED ? "OK" : "DOWN");
+    Serial.print("  Uptime=");
+    Serial.print(millis() / 1000);
+    Serial.print("s  FreeHeap=");
+    Serial.print(ESP.getFreeHeap());
+    Serial.println(" bytes");
+    lastLoopLog = millis();
+  }
+
   // MQTT reconnect logic
   if (!mqtt.connected()) {
     if (millis() - lastReconnectAttempt > reconnectDelay) {
+      Serial.print("[MQTT] Disconnected! Reconnecting (delay=");
+      Serial.print(reconnectDelay);
+      Serial.println("ms)...");
       lastReconnectAttempt = millis();
       if (!connectMQTT()) {
         reconnectDelay = min(reconnectDelay * 2, 30000UL);
+        Serial.print("[MQTT] Next retry in ");
+        Serial.print(reconnectDelay);
+        Serial.println("ms (exponential backoff)");
       }
     }
   } else {
@@ -669,7 +1037,17 @@ void loop() {
   // Publish battery
   if (millis() - lastBatteryPub >= 2000) {
     publishBattery();
+    // Also publish current mode so Dashboard stays in sync
+    mqtt.publish(T_STAT_MODE, currentMode.c_str(), true);
+    Serial.print("[MODE] Published current mode: ");
+    Serial.println(currentMode);
     lastBatteryPub = millis();
+  }
+
+  // Publish heartbeat every 10 seconds to keep robot online status active
+  if (millis() - lastHeartbeatPub >= 10000) {
+    publishHeartbeat();
+    lastHeartbeatPub = millis();
   }
 
   // Auto mode status
@@ -688,12 +1066,49 @@ void loop() {
 // Auto Mode State Machine
 // ============================================================================
 void runAutoMode() {
+  // Log state transitions
+  if (autoState != prevAutoState) {
+    Serial.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+    Serial.print("[AUTO] State transition: ");
+    // Print previous state name
+    switch (prevAutoState) {
+      case AUTO_IDLE:            Serial.print("IDLE"); break;
+      case AUTO_START_ROW:       Serial.print("START_ROW"); break;
+      case AUTO_MOVING_FORWARD:  Serial.print("MOVING_FORWARD"); break;
+      case AUTO_OBSTACLE_AVOID:  Serial.print("OBSTACLE_AVOID"); break;
+      case AUTO_ROW_COMPLETE:    Serial.print("ROW_COMPLETE"); break;
+      case AUTO_TURNING_1:       Serial.print("TURNING_1"); break;
+      case AUTO_SHIFTING:        Serial.print("SHIFTING"); break;
+      case AUTO_TURNING_2:       Serial.print("TURNING_2"); break;
+      case AUTO_COMPLETE:        Serial.print("COMPLETE"); break;
+    }
+    Serial.print(" -> ");
+    // Print new state name
+    switch (autoState) {
+      case AUTO_IDLE:            Serial.print("IDLE"); break;
+      case AUTO_START_ROW:       Serial.print("START_ROW"); break;
+      case AUTO_MOVING_FORWARD:  Serial.print("MOVING_FORWARD"); break;
+      case AUTO_OBSTACLE_AVOID:  Serial.print("OBSTACLE_AVOID"); break;
+      case AUTO_ROW_COMPLETE:    Serial.print("ROW_COMPLETE"); break;
+      case AUTO_TURNING_1:       Serial.print("TURNING_1"); break;
+      case AUTO_SHIFTING:        Serial.print("SHIFTING"); break;
+      case AUTO_TURNING_2:       Serial.print("TURNING_2"); break;
+      case AUTO_COMPLETE:        Serial.print("COMPLETE"); break;
+    }
+    Serial.println();
+    Serial.println("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
+    prevAutoState = autoState;
+  }
+
   switch (autoState) {
     case AUTO_IDLE:
       // Waiting for mode command
       break;
 
     case AUTO_START_ROW:
+      Serial.print("[AUTO] Starting row ");
+      Serial.print(autoRow);
+      Serial.println(" — resetting encoders & gyro ref");
       resetEncoders();
       resetGyroAngleRef();
       motorsForward();
@@ -702,12 +1117,20 @@ void runAutoMode() {
 
     case AUTO_MOVING_FORWARD:
       if (obstacleDetected) {
+        Serial.print("[AUTO] Obstacle detected at ");
+        Serial.print(distanceCm, 1);
+        Serial.println("cm — stopping & entering obstacle avoidance");
         motorsStop();
         obstacleTimer = millis();
         obstacleRetry = 0;
         avoidPhase = AVOID_WAITING;
         autoState = AUTO_OBSTACLE_AVOID;
       } else if (avgDistCm() >= ROW_LENGTH_CM) {
+        Serial.print("[AUTO] Row length reached (");
+        Serial.print(avgDistCm(), 1);
+        Serial.print("cm >= ");
+        Serial.print(ROW_LENGTH_CM, 1);
+        Serial.println("cm) — row complete!");
         motorsStop();
         autoState = AUTO_ROW_COMPLETE;
       }
@@ -719,6 +1142,7 @@ void runAutoMode() {
         case AVOID_WAITING:
           // Wait 2 seconds after obstacle detected
           if (millis() - obstacleTimer >= 2000) {
+            Serial.println("[AVOID] Wait complete — reading all sensors...");
             avoidPhase = AVOID_READING;
           }
           break;
@@ -729,14 +1153,24 @@ void runAutoMode() {
           bool leftClear = (s.left > SIDE_CLEAR_CM);
           bool rightClear = (s.right > SIDE_CLEAR_CM);
 
+          Serial.print("[AVOID] LeftClear=");
+          Serial.print(leftClear ? "YES" : "NO");
+          Serial.print("  RightClear=");
+          Serial.println(rightClear ? "YES" : "NO");
+
           if (leftClear && rightClear) {
             avoidTurnDir = (s.left >= s.right) ? 1 : -1;
+            Serial.print("[AVOID] Both sides clear — turning ");
+            Serial.println(avoidTurnDir > 0 ? "LEFT (more space)" : "RIGHT (more space)");
           } else if (leftClear) {
             avoidTurnDir = 1;
+            Serial.println("[AVOID] Only left clear — turning LEFT");
           } else if (rightClear) {
             avoidTurnDir = -1;
+            Serial.println("[AVOID] Only right clear — turning RIGHT");
           } else {
             avoidTurnDir = 1;  // Both blocked, default left
+            Serial.println("[AVOID] *** BOTH SIDES BLOCKED — defaulting LEFT ***");
           }
 
           // Start pivoting
@@ -746,6 +1180,11 @@ void runAutoMode() {
           } else {
             motorsRight();
           }
+          Serial.print("[AVOID] Pivoting ");
+          Serial.print(avoidTurnDir > 0 ? "LEFT" : "RIGHT");
+          Serial.print(" — target ");
+          Serial.print(TURN_DONE_DEG, 1);
+          Serial.println("°");
           avoidPhase = AVOID_TURNING;
           break;
         }
@@ -753,14 +1192,22 @@ void runAutoMode() {
         case AVOID_TURNING:
           // Wait for turn to complete (non-blocking)
           if (gyroAngleDelta() >= TURN_DONE_DEG) {
+            Serial.print("[AVOID] Turn complete — delta=");
+            Serial.print(gyroAngleDelta(), 1);
+            Serial.println("°");
             motorsStop();
             obstacleRetry++;
+            Serial.print("[AVOID] Obstacle retry count: ");
+            Serial.print(obstacleRetry);
+            Serial.println("/3");
             if (obstacleRetry > 3) {
+              Serial.println("[AVOID] *** MAX RETRIES EXCEEDED — STOPPING AUTO MODE ***");
               motorsStop();
               setVacuumMotor(0);
               autoState = AUTO_COMPLETE;
             } else {
               // Resume forward
+              Serial.println("[AVOID] Resuming forward motion...");
               resetEncoders();
               motorsForward();
               autoState = AUTO_MOVING_FORWARD;
@@ -773,14 +1220,26 @@ void runAutoMode() {
     case AUTO_ROW_COMPLETE:
       autoRow++;
       coveragePct = (autoRow / (float)MAX_ROWS) * 100.0f;
+      Serial.print("[AUTO] Row complete! Completed row ");
+      Serial.print(autoRow);
+      Serial.print("/");
+      Serial.print(MAX_ROWS);
+      Serial.print("  Coverage=");
+      Serial.print((int)coveragePct);
+      Serial.println("%");
+
       if (autoRow >= MAX_ROWS) {
+        Serial.println("[AUTO] *** ALL ROWS COMPLETE — CLEANING FINISHED! ***");
         motorsStop();
         setVacuumMotor(0);
         autoState = AUTO_COMPLETE;
         currentMode = "MANUAL";
         mqtt.publish(T_STAT_MODE, "MANUAL", true);
+        Serial.println("[AUTO] Mode switched to MANUAL");
       } else {
         turnDir = (autoRow % 2 == 0) ? 1 : -1;
+        Serial.print("[AUTO] Preparing turn — direction=");
+        Serial.println(turnDir == 1 ? "RIGHT" : "LEFT");
         resetGyroAngleRef();
         if (turnDir == 1) {
           motorsRight();
@@ -793,6 +1252,9 @@ void runAutoMode() {
 
     case AUTO_TURNING_1:
       if (gyroAngleDelta() >= TURN_DONE_DEG) {
+        Serial.print("[AUTO] Turn 1 complete — delta=");
+        Serial.print(gyroAngleDelta(), 1);
+        Serial.println("° — shifting forward");
         motorsStop();
         resetEncoders();
         motorsForward();
@@ -802,6 +1264,9 @@ void runAutoMode() {
 
     case AUTO_SHIFTING:
       if (avgDistCm() >= ROW_WIDTH_CM) {
+        Serial.print("[AUTO] Shift complete — moved ");
+        Serial.print(avgDistCm(), 1);
+        Serial.println("cm — starting turn 2");
         motorsStop();
         resetGyroAngleRef();
         if (turnDir == 1) {
@@ -815,6 +1280,9 @@ void runAutoMode() {
 
     case AUTO_TURNING_2:
       if (gyroAngleDelta() >= TURN_DONE_DEG) {
+        Serial.print("[AUTO] Turn 2 complete — delta=");
+        Serial.print(gyroAngleDelta(), 1);
+        Serial.println("° — starting next row");
         motorsStop();
         autoState = AUTO_START_ROW;
       }
