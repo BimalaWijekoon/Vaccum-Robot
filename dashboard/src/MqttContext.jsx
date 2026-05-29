@@ -148,7 +148,23 @@ export const MqttProvider = ({ children }) => {
     });
 
     mqttClient.on('error', (err) => {
-      console.error("[MQTT-ERROR] Connection error:", err.message);
+      console.error("[MQTT-ERROR] Connection error:", err);
+      console.error("[MQTT-ERROR] Message:", err.message);
+      console.error("[MQTT-ERROR] Code:", err.code);
+      console.error("[MQTT-ERROR] Type:", err.constructor.name);
+      
+      // Detailed diagnosis
+      if (err.message.includes('getaddrinfo') || err.message.includes('ENOTFOUND')) {
+        console.error("[MQTT-ERROR] 🌐 DNS resolution failed - broker host unreachable");
+      } else if (err.message.includes('ECONNREFUSED')) {
+        console.error("[MQTT-ERROR] 🚫 Connection refused - broker not accepting connections on that port");
+      } else if (err.message.includes('timeout')) {
+        console.error("[MQTT-ERROR] ⏱️ Connection timeout - broker not responding (firewall?)");
+      } else if (err.message.includes('certificate') || err.message.includes('SSL')) {
+        console.error("[MQTT-ERROR] 🔒 TLS/Certificate error - try refreshing or check broker cert");
+      }
+      
+      addLog('ERROR', `MQTT Connection Error: ${err.message}`);
       setMqttConnected(false);
       setRobotOnline(false);
     });
@@ -162,6 +178,11 @@ export const MqttProvider = ({ children }) => {
     mqttClient.on('offline', () => {
       console.log("[MQTT-Dashboard] Client went offline");
       setMqttConnected(false);
+    });
+
+    mqttClient.on('reconnect', () => {
+      console.log("[MQTT-Dashboard] Attempting to reconnect...");
+      addLog('INFO', 'MQTT reconnecting...');
     });
 
     setClient(mqttClient);
