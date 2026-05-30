@@ -146,7 +146,7 @@ const AppContent = () => {
       
       if (w < 768) {
         newLayout = 'mobile';
-      } else if (w < 1200) {
+      } else if (w <= 1199) {
         newLayout = 'tablet';
       }
       
