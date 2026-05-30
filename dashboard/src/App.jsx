@@ -121,20 +121,15 @@ const AppContent = () => {
   React.useEffect(() => {
     const checkLayout = () => {
       const w = window.innerWidth;
-      let newLayout = 'desktop';
-      if (w < 640) newLayout = 'mobile';
-      else if (w < 1024) newLayout = 'tablet';
-      
-      console.log(`[VacBot Dashboard] Viewport width: ${w}px → Layout: ${newLayout}`);
-      setLayout(newLayout);
+      if (w < 768) setLayout('mobile');
+      else if (w < 1200) setLayout('tablet');
+      else setLayout('desktop');
     };
 
     checkLayout();
     window.addEventListener('resize', checkLayout);
     return () => window.removeEventListener('resize', checkLayout);
   }, []);
-
-  console.log(`[VacBot Dashboard] Rendering layout: ${layout}`);
 
   if (layout === 'mobile') return <MobileLayout />;
   if (layout === 'tablet') return <TabletLayout />;
