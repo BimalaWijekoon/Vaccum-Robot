@@ -265,3 +265,23 @@ h1, h2, h3, h4, h5, h6 {
   align-items: center;
   gap: 24px;
 }
+
+/* Responsive Layout Modifications */
+.map-radar-container { display: flex; gap: 10px; height: 100%; flex: 1; min-height: 0; }
+
+@media (max-width: 1199px) {
+  .app-container { grid-template-columns: var(--sidebar-width) 1fr; grid-template-rows: var(--top-bar-height) 1fr auto; }
+  .right-panel { grid-column: 1 / -1; grid-row: 3; flex-direction: row; height: auto; overflow-x: auto; flex-wrap: wrap; justify-content: center; }
+}
+
+@media (max-width: 767px) {
+  body { overflow-y: auto; overflow-x: hidden; }
+  .app-container { display: flex; flex-direction: column; height: auto; overflow: visible; gap: 20px; }
+  .top-bar { flex-direction: column; height: auto; padding: 15px; gap: 15px; }
+  .top-bar-right { width: 100%; justify-content: space-between; }
+  .left-panel { overflow: visible; gap: 15px; }
+  .center-panel { overflow: visible; gap: 15px; }
+  .right-panel { flex-direction: column; overflow: visible; gap: 15px; }
+  .map-radar-container { flex-direction: column; height: auto; min-height: 600px; gap: 15px; }
+  .control-pad-wrapper { margin: 0 auto; }
+}

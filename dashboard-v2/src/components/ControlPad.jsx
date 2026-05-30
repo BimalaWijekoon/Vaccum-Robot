@@ -89,7 +89,7 @@ const ControlPad = () => {
   };
 
   return (
-    <div style={{ display: 'flex', gap: '10px' }}>
+    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
       {/* Navigation Card */}
       <div className="card" style={{ flex: 1 }}>
         <div className="card-header">

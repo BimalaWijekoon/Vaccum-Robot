@@ -4,7 +4,7 @@ import ObstacleRadar from './ObstacleRadar';
 
 const MapAndRadar = () => {
   return (
-    <div style={{ display: 'flex', gap: '10px', height: '100%', flex: 1, minHeight: 0 }}>
+    <div className="map-radar-container">
       <LiveSlam />
       <ObstacleRadar />
     </div>
