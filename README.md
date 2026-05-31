@@ -2,11 +2,12 @@
 
 Welcome to the VacBot project! This guide explains how to set up the hardware, flash the firmware, run the simulator, and use the web dashboard.
 
-**Latest Updates (v1.1)**:
-- ⚡ **Battery threshold optimized**: Now operates until 7V (was 9V) for longer runtime during peak load
-- 🎯 **Faster obstacle detection**: Sonar polling increased to 30ms (was 100ms) for real-time responsiveness  
-- 🛡️ **Continuous safety monitoring**: New obstacle detection during movement prevents collisions in both MANUAL and AUTO modes
-- 🎨 **Redesigned dashboard**: VacuumControl and ArrowNavigation now displayed side-by-side (matching SLAM+Radar layout)
+**Latest Updates (v2.0)**:
+- 🔁 **Advanced TEACH & REPLAY Mode**: Completely overhauled waypoint recording. The robot now records *snapshot segments* based on command changes (rather than a time-based loop), eliminating cumulative dead-reckoning drift. Replay mode features intelligent micro-correction passes on turns and rate-based encoder drift correction for perfect straight lines, even on high-friction carpets!
+- 🔋 **Smart Sleep Mode & Auto-Standby**: The new `SLEEP` state suspends high-frequency sonar and gyro polling, stops the motors, and shuts off the NeoPixel LEDs. The robot automatically puts itself into Standby after 5 minutes of inactivity.
+- 🎛️ **Remote Calibration**: Zero the gyro and reset wheel encoders remotely directly from the dashboard header without physically touching the robot.
+- 📱 **Mobile UI & Rendering Fixes**: Eliminated canvas device-pixel-ratio scaling crashes on iOS/Android. Fully responsive mission control layout with corrected body overflow styling.
+- 🏎️ **Optimized Motor Torque**: Drive speeds increased to handle heavy friction on hard floors and carpets without stalling.
 
 ## Hardware Wiring
 
@@ -63,7 +64,6 @@ PlatformIO is pre-configured via `platformio.ini` at the project root. No code c
    ```bash
    pio device monitor
    ```
-   All libraries are fetched automatically from the registry on first build.
 
 ### Option B — Arduino IDE (Legacy)
 
@@ -73,58 +73,40 @@ PlatformIO is pre-configured via `platformio.ini` at the project root. No code c
 4. Set the **Upload Speed** to `921600`.
 5. Connect your ESP32-S3 via USB and click **Upload**.
 
-## Step 2 — Gyro Calibration
+## Step 2 — Initial Gyro Calibration
 
 1. After flashing, place the robot on a completely flat surface and power it on.
 2. The RGB LED will turn **BLUE** while connecting. 
-3. **Keep the robot completely still for 3 seconds.** It is actively taking 600+ samples to calculate the gyroscope bias.
+3. **Keep the robot completely still for 3 seconds.** It actively takes 600+ samples to calculate the gyroscope bias.
 4. Next, the robot will briefly spin left to detect the gyro orientation sign.
 5. Once calibration is done and WiFi/MQTT connect successfully, the LED will turn **GREEN**.
+6. *Note: You can recalibrate the robot at any time from the Web Dashboard by clicking the "Calibrate" button in the top right header.*
 
-## Step 3 — Run Simulator (optional testing without hardware)
+## Step 3 — Open Dashboard
 
-You can run the digital twin of the robot if you don't have the hardware ready:
-1. Ensure you have [Node.js](https://nodejs.org/) installed.
-2. In this folder, run `npm install mqtt` in your terminal.
-3. Run `node simulator.js`.
-4. Wait 5 seconds for the simulator to perform its virtual gyro calibration.
-5. Open the Dashboard (Step 4) to control the simulator!
-
-## Step 4 — Open Dashboard
-
-1. Open the dashboard by navigating to the `dashboard` folder and running `npm install` then `npm run dev` or `npm run build`.
-2. For production, open the built `index.html` in your web browser.
-3. Click the connection icon to configure MQTT settings:
-   - **Host:** `0808028e417c4ff2957842f563dafe7b.s1.eu.hivemq.cloud`
-   - **Port:** `8884` (for secure WebSockets)
-   - **User:** `VaccumRobot`
-   - **Pass:** `Vaccum@12345`
-4. Click **Connect**. (Credentials are saved in localStorage for future sessions).
+1. Open the dashboard by navigating to the `dashboard-v2` folder and running `npm install` then `npm run dev` or `npm run build`.
+2. For production, deploy the `dist/` folder to Vercel or open the built `index.html`.
+3. The dashboard connects securely to HiveMQ using WebSockets. 
 
 ### Dashboard Layout
 
 The dashboard is organized in a professional 3-column mission control layout:
 
 **Desktop (1200px+)**:
-- **Left Panel**: Battery status, sensor readings (Front/Left/Right ultrasonic), wheel encoder metrics, AI decision log
-- **Center Panel** (flex):
-  - **Top**: Real-time SLAM map (dead-reckoning visualization) + 180° radar with live obstacle dots
-  - **Bottom**: Arrow navigation controls (4-directional) + Vacuum control (slider + presets) displayed side-by-side
-- **Right Panel**: Mission status (current row, coverage %, ETA), mode selector, heartbeat metrics
+- **Left Panel**: Battery status, sensor readings (Front/Left/Right ultrasonic), wheel encoder metrics, AI decision log.
+- **Center Panel**: Real-time SLAM map visualization, 180° live sonar radar, Arrow navigation controls, and Vacuum sliders.
+- **Right Panel**: Mission status, Teach & Replay tools, Mode selector, and heartbeat metrics.
 
-**Tablet (768-1199px)**: Center panel remains full-width, left/right panels stack below
-
-**Mobile (<768px)**: Single column layout with all components stacked vertically
+**Tablet & Mobile**: Responsively stacks into a clean, smooth-scrolling single column layout. High-DPI canvas flickering is fully resolved for modern iPhones and Android devices!
 
 ### Dashboard Features
 
-- **Real-time SLAM Map**: Canvas visualization showing robot position, path history, obstacle positions, and movement trends
-- **Live Radar**: SVG 180° radar displaying front/left/right sensor distances with safe direction indicators
-- **Arrow Navigation**: 4-directional movement control with keyboard support (↑↓←→ or WASD) and touch support
-- **Vacuum Control**: Suction slider (0-255) with ECO/NORM/MAX preset buttons, auto-disabled in AUTO mode
-- **Battery Monitoring**: Live voltage, percentage, health status (EXCELLENT/GOOD/FAIR/LOW/CRITICAL) with color-coded indicator
-- **Mode Toggle**: Switch between MANUAL and AUTO cleaning modes
-- **Live Telemetry**: Real-time sonar readings, gyro heading, encoder distances, and navigation guidance
+- **Header System Controls**: Remote Sleep/Wake toggle button and Recalibration button!
+- **Real-time SLAM Map**: Canvas visualization showing robot position, path history, obstacle positions, and movement trends.
+- **Live Radar**: SVG 180° radar displaying front/left/right sensor distances with safe direction indicators.
+- **Arrow Navigation**: 4-directional movement control with keyboard support (↑↓←→ or WASD) and touch support.
+- **Teach & Replay Menu**: Easily record custom paths (waypoints) and trigger autonomous playback loops.
+- **Battery Monitoring**: Live voltage, percentage, health status with color-coded alerts.
 
 ## MQTT Topic Reference
 
@@ -134,98 +116,59 @@ All communication happens under the `vacbot/` prefix:
 | :--- | :--- | :--- | :--- |
 | `vacbot/cmd/movement` | ⬇️ Dash -> Robot | `FORWARD`, `STOP` | Manual drive commands |
 | `vacbot/cmd/suction` | ⬇️ Dash -> Robot | `160`, `255` | 0-255 manual vacuum speed |
-| `vacbot/cmd/mode` | ⬇️ Dash -> Robot | `AUTO`, `MANUAL` | Mode toggle |
-| `vacbot/status/battery` | ⬆️ Robot -> Dash | `{"voltage":"11.5","percent":85,"health":"GOOD","alert":false}` | Battery telemetry |
+| `vacbot/cmd/mode` | ⬇️ Dash -> Robot | `AUTO`, `MANUAL`, `SLEEP` | Mode toggle |
+| `vacbot/cmd/system` | ⬇️ Dash -> Robot | `CALIBRATE` | Trigger remote calibration |
+| `vacbot/status/battery` | ⬆️ Robot -> Dash | `{"voltage":"11.5","percent":85,"alert":false}` | Battery telemetry |
 | `vacbot/status/distance` | ⬆️ Robot -> Dash | `{"cm":120,"obstacle":false}` | Front sonar distance |
-| `vacbot/status/mode` | ⬆️ Robot -> Dash | `AUTO`, `MANUAL` | Mode confirmation |
-| `vacbot/status/auto` | ⬆️ Robot -> Dash | `{"state":"MOVING_FORWARD","row":1,"yaw":0,...}` | Auto cleaning state |
-| `vacbot/status/online` | ⬆️ Robot -> Dash | `online`, `offline` | Robot LWT (Last Will) status |
-
-## Auto Mode Tuning
-
-You can adjust how the robot cleans your room by modifying these values in the `CONFIG` block:
-- **`ROW_LENGTH_CM`**: The distance the robot drives forward in a straight line before turning.
-- **`ROW_WIDTH_CM`**: The sideways distance the robot shifts over before starting the next row.
-- **`MAX_ROWS`**: The total number of rows to complete before finishing.
-- **`BATTERY_MIN_V`** (7.0V): Minimum voltage threshold. Robot allows operation down to 7V for longer cleaning sessions during high power draw (motors + vacuum together).
-- **`OBSTACLE_CM`** (15): Front sonar distance threshold for obstacle detection.
-- **`FRONT_STOP_CM`** (9): Emergency stop distance in AUTO mode.
-- **`SIDE_CLEAR_CM`** (7): Minimum safe distance for left/right obstacle clearance.
+| `vacbot/status/mode` | ⬆️ Robot -> Dash | `AUTO`, `SLEEP` | Mode confirmation |
+| `vacbot/status/odometry` | ⬆️ Robot -> Dash | `{"yaw": 90, "left_cm": 20}` | Dead-reckoning location |
+| `vacbot/status/teach` | ⬆️ Robot -> Dash | `{"recording":true,"waypoints":4}` | Teach state tracking |
 
 ## Firmware Features
 
-### Enhanced Obstacle Detection (v1.1)
+### Intelligent TEACH & REPLAY System (v2.0)
+- **Snapshot Recording**: Records exact distance and angle changes precisely at the moment the manual drive command is switched, removing the 100ms drift artifacts common in old polling logic.
+- **Rate-Based PID Correction**: Replay calculates wheel difference over time, rather than cumulative wheel count. This stops the robot from permanently crippling one motor if it temporarily gets stuck on high-friction carpet.
+- **Precision Turning**: Turns decelerate and apply micro-corrections (stopping 2 degrees early and pulsing the motors) to guarantee exact 90° or 180° rotations, solving the dead-reckoning drift!
 
-The firmware now implements **real-time continuous obstacle monitoring** for safer autonomous and manual operation:
+### Enhanced Obstacle Detection
+- **30ms Sonar Polling**: All 3 ultrasonic sensors (front/left/right) are read every 30ms for high-speed responsiveness.
+- **MANUAL Mode Safety**: If front sonar detects an obstacle within `OBSTACLE_CM` (15cm), forward movement is immediately blocked to protect the chassis.
+- **Predictive Avoidance**: If the robot approaches an obstacle quickly (<35cm), it triggers predictive turns toward the clearest side.
 
-- **30ms Sonar Polling**: All 3 ultrasonic sensors (front/left/right) are read every 30ms instead of 100ms, providing faster response times
-- **MANUAL Mode Safety**: If front sonar detects obstacle within `OBSTACLE_CM` (15cm), forward movement is blocked immediately
-- **AUTO Mode Predictive Avoidance**: 
-  - If robot is approaching obstacle (distance decreasing) at <35cm, predictive turn is triggered
-  - Emergency stop at <9cm critical distance
-  - Smart turn direction selection (turns toward clearer side)
-- **Continuous Monitoring**: `checkObstaclesWhileMoving()` function runs every loop iteration, catching obstacles even between state machine updates
-- **Safe Directions Guidance**: Publishes real-time safe movement directions (FORWARD, LEFT, RIGHT, BACKWARD, STOP) to dashboard
-
-### Battery Management (v1.1)
-
-- **Optimized Voltage Threshold**: `BATTERY_MIN_V` set to 7.0V (was 9.0V), allowing extended runtime during high power draw
-- **Smart Vacuum Speed Control**: Auto-adjusts vacuum speed based on battery level (TURBO at >70%, ECO at ≤70%)
-- **Health Status Indicators**:
-  - **EXCELLENT**: ≥95% charge
-  - **GOOD**: 75-95%
-  - **FAIR**: 50-75%
-  - **LOW**: 25-50% (pulse animation on dashboard)
-  - **CRITICAL**: <25% (emergency shutdown)
-- **Peak Load Handling**: When fan + motors run simultaneously, system maintains operation until 7V instead of cutting out at 9.2V
-
-### Telemetry Publishing
-
-The firmware publishes rich telemetry data every 30-2000ms to the MQTT broker for dashboard visualization and logging:
-- **Sonar data**: Front, left, right distances (every 30ms)
-- **Navigation guidance**: Safe directions, approach detection, distance trend
-- **Battery**: Voltage, percentage, health, alert status (every 2s)
-- **Auto mode status**: State, row number, yaw angle, encoder distances, coverage % (every 1s)
+### Power Management & Standby
+- **Auto-Sleep**: Robot goes into Standby Mode (`currentMode = SLEEP`) automatically after 5 minutes of manual idle time.
+- **Hardware Suspension**: Standby cuts power to the NeoPixels, disables all PWM outputs to motor drivers, and skips the I2C Gyro/Sonar polling cycles to preserve the battery.
+- **Optimized Voltage Threshold**: `BATTERY_MIN_V` set to 7.0V (was 9.0V), allowing extended runtime during high-power vacuum usage.
 
 ## Troubleshooting
 
-- **Robot stops prematurely (9.2V alert):** This was the expected behavior at BATTERY_MIN_V=9.0V. Updated to 7.0V in v1.1 for longer runtime. If you're still seeing early shutdowns, check for excessive draw (motors stalling, vacuum jamming).
-  
-- **Robot collides with obstacles:** Verify sonar sensors are wired correctly (GPIO 11/12/13 for echo pins). Test with serial monitor to confirm readings. If sonar reads are >200cm or flat, sensors may be damaged or misaligned.
-
-- **Robot turns too much/little:** The gyro sign might be wrong or biased. Re-run calibration by resetting the ESP32 on a completely flat surface.
-
+- **Robot turns too much/little:** Ensure the wheels aren't slipping. Try using the new **Calibrate** button on the dashboard header while the robot is perfectly flat.
+- **Motors crying on carpet:** We updated the torque constants to 255. Ensure your battery is fully charged.
 - **MPU not found:** The LED will blink red. Check your I2C wiring on GPIO 8 (SDA) and 9 (SCL).
-
-- **MQTT not connecting:** LED stays blue. Check your WiFi signal strength and ensure your SSID/Password are correct in the firmware config. For TLS certificate issues, the firmware will fall back to insecure mode automatically.
-
-- **Vacuum not spinning:** Ensure the TB6612FNG STBY pin is tied to 3.3V and that the `PIN_VAC_PWM` (38) wiring is correct. Test with dashboard slider.
-
-- **Dashboard not updating:** Verify MQTT connection status in the dashboard header. Check that robot is online and subscribed to correct topics. Browser console (F12) may show WebSocket errors.
-
-- **Obstacle detection not responsive:** Check sonar polling frequency in serial monitor (should show new readings every 30ms). If sonar readings are noisy, try adding a 100nF capacitor across the sensor VCC/GND pins.
+- **MQTT not connecting:** LED stays blue. Check your WiFi signal strength and ensure your SSID/Password are correct. For TLS certificate issues, the firmware falls back to insecure mode automatically.
+- **Dashboard UI Crashing on Mobile:** Make sure you've built the latest `v2.0` dashboard code, which includes the `devicePixelRatio` fix for the Canvas SLAM visualizer.
 
 ## Changelog
 
-### v1.1 (Current)
-**Firmware Improvements**:
-- Reduced sonar polling interval from 100ms → 30ms for real-time obstacle detection
-- Added `checkObstaclesWhileMoving()` for continuous safety monitoring during movement
-- BATTERY_MIN_V threshold adjusted from 9.0V → 7.0V to support extended runtime during peak load (motors + vacuum)
-- Improved AUTO mode predictive avoidance with approach detection
-- Enhanced MANUAL mode with immediate obstacle blocking
+### v2.0 (Current)
+- Complete overhaul of TEACH/REPLAY snapshot logic.
+- Added intelligent PID rate-correction for straight-line replay drift.
+- Added micro-correction passes for precision turning.
+- Implemented global `SLEEP` state with 5-minute Auto-Standby timer.
+- Added remote `CALIBRATE` system command via MQTT.
+- Fixed critical Canvas rendering loop crash on Mobile Webkit browsers.
+- Re-architected Dashboard Header with explicit power and calibration buttons.
 
-**Dashboard Enhancements**:
-- Separated VacuumControl from ArrowNavigation component for better UI hierarchy
-- Implemented side-by-side layout for arrow navigation + vacuum control (matching SLAM + Radar layout)
-- Improved responsive breakpoints and mobile layout
-- Added real-time navigation guidance (safe directions indicator)
-- Enhanced visual consistency across all components
+### v1.1
+- Reduced sonar polling interval from 100ms → 30ms for real-time obstacle detection.
+- Added `checkObstaclesWhileMoving()` for continuous safety monitoring.
+- BATTERY_MIN_V threshold adjusted from 9.0V → 7.0V to support extended peak load.
+- Added Side-by-side dashboard layout for desktop and resolved CSS overflow issues.
 
 ### v1.0 (Initial Release)
-- Complete autonomous vacuum robot firmware with WiFi + MQTT connectivity
-- 3x ultrasonic sensor obstacle detection and avoidance
-- Real-time SLAM map visualization on React dashboard
-- Dual H-bridge motor control with encoder feedback
-- MPU6050 gyroscope-based heading tracking
-- Professional mission control dashboard with 3-column layout
+- Autonomous vacuum robot firmware with WiFi + MQTT connectivity.
+- 3x ultrasonic sensor obstacle detection and avoidance.
+- Real-time SLAM map visualization on React dashboard.
+- Dual H-bridge motor control with encoder feedback.
+- MPU6050 gyroscope-based heading tracking.

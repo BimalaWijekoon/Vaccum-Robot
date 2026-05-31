@@ -170,6 +170,12 @@ unsigned long lastGyroMs = 0;
 String currentMode    = "MANUAL";
 unsigned long lastInputMs = 0;
 int    currentSuction = 0;
+
+// TEACH mode snapshot variables
+long teachSnapLeft   = 0;
+long teachSnapRight  = 0;
+float teachSnapAngle = 0.0f;
+String teachPrevCmd  = "STOP";
 bool   obstacleDetected = false;
 float  distanceCm = 400.0f;
 
@@ -1371,10 +1377,7 @@ void setup() {
 // ============================================================================
 
 // Snapshot state — tracks the START of each movement segment
-static long  teachSnapLeft   = 0;
-static long  teachSnapRight  = 0;
-static float teachSnapAngle  = 0.0f;
-static String teachPrevCmd   = "STOP";
+// (Variables moved to Global Variables section at top of file)
 
 void onTeachCommandChange(String newCmd) {
   // Called from setMotorsByCmd when in TEACH mode
