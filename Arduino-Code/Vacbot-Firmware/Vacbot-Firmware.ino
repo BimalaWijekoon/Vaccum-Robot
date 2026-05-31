@@ -50,8 +50,8 @@
 #define MAX_ROWS                 10
 #define OBSTACLE_CM              15
 #define TURN_DONE_DEG            88.0f
-#define DRIVE_SPEED              90
-#define PIVOT_SPEED              90
+#define DRIVE_SPEED              155
+#define PIVOT_SPEED              155
 #define FRONT_STOP_CM            9
 #define SIDE_CLEAR_CM            7
 #define VACUUM_TURBO_SPEED       255
@@ -59,7 +59,6 @@
 // Straight-line encoder correction
 #define LEFT_SPEED_TRIM      0      // manual baseline offset if one wheel is consistently slower
 #define RIGHT_SPEED_TRIM     0      // start both at 0, tune later if needed
-#define CORRECTION_GAIN      1.5f   // how hard to correct — increase if still drifting, decrease if oscillating
 #define CORRECTION_INTERVAL  50     // check every 50ms
 // ============================================================================
 
@@ -102,6 +101,8 @@
 #define T_CMD_MOVEMENT  "vacbot/cmd/movement"
 #define T_CMD_SUCTION   "vacbot/cmd/suction"
 #define T_CMD_MODE      "vacbot/cmd/mode"
+#define T_CMD_SYS       "vacbot/cmd/system"
+#define AUTO_SLEEP_MS   300000
 #define T_STAT_BATTERY  "vacbot/status/battery"
 #define T_STAT_DISTANCE "vacbot/status/distance"
 #define T_STAT_MODE     "vacbot/status/mode"
@@ -167,6 +168,7 @@ float gyroSign     = 1.0f;
 unsigned long lastGyroMs = 0;
 
 String currentMode    = "MANUAL";
+unsigned long lastInputMs = 0;
 int    currentSuction = 0;
 bool   obstacleDetected = false;
 float  distanceCm = 400.0f;
@@ -396,9 +398,12 @@ void setMotorsByCmd(String cmd) {
   Serial.print("[CMD] Movement command received: ");
   Serial.println(cmd);
 
-  // Track last command for TEACH recording
   lastMotorCmd = cmd;
 
+  // TEACH: commit previous segment and snapshot new one on every command change
+  if (currentMode == "TEACH") {
+    onTeachCommandChange(cmd);
+  }
   // MANUAL + TEACH mode obstacle blocking
   if (currentMode == "MANUAL" || currentMode == "TEACH") {
     if (cmd == "FORWARD" && sonarFront <= OBSTACLE_CM) {
@@ -502,10 +507,9 @@ void checkObstaclesWhileMoving() {
 }
 
 // ============================================================================
-// FIX-8: Encoder-based straight-line correction
-// Compares left vs right pulse counts while driving straight and nudges
-// the faster wheel down to keep the robot tracking in a straight line.
-// Works in MANUAL, TEACH, AUTO forward, and REPLAY forward.
+// FIX-8: Encoder-based straight-line correction (rate-based, not cumulative)
+// Compares pulses gained in the LAST INTERVAL only — not running totals.
+// This prevents accumulated distance errors from permanently slowing a wheel.
 // ============================================================================
 void correctStraightLine() {
 
@@ -517,41 +521,66 @@ void correctStraightLine() {
     (currentMode == "REPLAY" && replayPhase == RP_MOVING)
   );
 
+  // When not driving straight — reset snapshots so next straight starts clean
+  static long prevLeft  = 0;
+  static long prevRight = 0;
+  static int  leftPWM   = DRIVE_SPEED;
+  static int  rightPWM  = DRIVE_SPEED;
+
   if (!drivingStraight) {
-    lastCorrectionMs = 0;   // reset timer so next straight starts fresh
+    prevLeft  = safeReadLeft();
+    prevRight = safeReadRight();
+    leftPWM   = DRIVE_SPEED;
+    rightPWM  = DRIVE_SPEED;
+    lastCorrectionMs = millis();
     return;
   }
 
   if (millis() - lastCorrectionMs < CORRECTION_INTERVAL) return;
   lastCorrectionMs = millis();
 
-  long lPulses = safeReadLeft();
-  long rPulses = safeReadRight();
-  long diff    = lPulses - rPulses;   // positive = left is running faster
+  // Read current totals
+  long nowLeft  = safeReadLeft();
+  long nowRight = safeReadRight();
 
-  int leftSpeed  = constrain(DRIVE_SPEED + LEFT_SPEED_TRIM,  40, 255);
-  int rightSpeed = constrain(DRIVE_SPEED + RIGHT_SPEED_TRIM, 40, 255);
+  // Pulses gained ONLY in this interval — not since movement started
+  long deltaLeft  = nowLeft  - prevLeft;
+  long deltaRight = nowRight - prevRight;
 
-  if (diff > 0) {
-    // Left wheel is faster — pull it back
-    leftSpeed  = constrain(leftSpeed  - (int)(diff * CORRECTION_GAIN), 40, 255);
-  } else if (diff < 0) {
-    // Right wheel is faster — pull it back
-    rightSpeed = constrain(rightSpeed + (int)(diff * CORRECTION_GAIN), 40, 255);
+  // Save snapshots for next interval
+  prevLeft  = nowLeft;
+  prevRight = nowRight;
+
+  // How different are the two wheels this interval?
+  long diff = deltaLeft - deltaRight;  // positive = left faster this interval
+
+  // Nudge PWM — small steps only, no sudden jumps
+  if (diff > 1) {
+    // Left faster — slow left slightly
+    leftPWM  = constrain(leftPWM  - 2, 50, 255);
+    rightPWM = constrain(rightPWM + 1, 50, 255);
+  } else if (diff < -1) {
+    // Right faster — slow right slightly
+    rightPWM = constrain(rightPWM - 2, 50, 255);
+    leftPWM  = constrain(leftPWM  + 1, 50, 255);
+  } else {
+    // Wheels matched — gently drift both back toward DRIVE_SPEED
+    if (leftPWM  < DRIVE_SPEED) leftPWM++;
+    if (leftPWM  > DRIVE_SPEED) leftPWM--;
+    if (rightPWM < DRIVE_SPEED) rightPWM++;
+    if (rightPWM > DRIVE_SPEED) rightPWM--;
   }
 
-  // Apply directly to PWM — bypasses setLeftMotor/setRightMotor intentionally
-  // so we don't re-trigger direction logic on every correction tick
-  analogWrite(PIN_LEFT_ENA,  leftSpeed);
-  analogWrite(PIN_RIGHT_ENB, rightSpeed);
+  // Apply
+  analogWrite(PIN_LEFT_ENA,  leftPWM);
+  analogWrite(PIN_RIGHT_ENB, rightPWM);
 
-  // Only log when actually correcting (diff > 2 to ignore noise)
-  if (abs(diff) > 2) {
-    Serial.print("[CORRECT] L="); Serial.print(lPulses);
-    Serial.print(" R=");          Serial.print(rPulses);
-    Serial.print(" diff=");       Serial.print(diff);
-    Serial.print(" Lspd=");       Serial.print(leftSpeed);
-    Serial.print(" Rspd=");       Serial.println(rightSpeed);
+  if (abs(diff) > 1) {
+    Serial.print("[CORRECT] dL="); Serial.print(deltaLeft);
+    Serial.print(" dR=");          Serial.print(deltaRight);
+    Serial.print(" diff=");        Serial.print(diff);
+    Serial.print(" Lspd=");        Serial.print(leftPWM);
+    Serial.print(" Rspd=");        Serial.println(rightPWM);
   }
 }
 
@@ -971,6 +1000,32 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   Serial.print("[MQTT-RX] Payload: "); Serial.println(p);
   Serial.print("[MQTT-RX] Length: ");  Serial.println(length);
 
+  lastInputMs = millis(); // Reset idle timer on any incoming message
+
+  // ── System Commands ────────────────────────────────────────────────────────
+  if (strcmp(topic, T_CMD_SYS) == 0) {
+    if (p == "CALIBRATE") {
+      Serial.println("[SYS] CALIBRATE command received. Halting and calibrating...");
+      motorsStop();
+      setVacuumMotor(0);
+      setRGB(128, 0, 128); // Purple
+      delay(100);
+      calibrateGyro();
+      determineGyroSign();
+      resetEncoders();
+      resetGyroAngleRef();
+      if (currentMode == "SLEEP") {
+        rgb.clear();
+        rgb.show();
+      } else {
+        setRGB(0, 255, 0);
+      }
+      mqtt.publish("vacbot/status/system", "Calibrated successfully");
+      Serial.println("[SYS] Calibration complete.");
+    }
+    return;
+  }
+
   // ── Movement Commands ──────────────────────────────────────────────────────
   if (strcmp(topic, T_CMD_MOVEMENT) == 0) {
     Serial.print("[MQTT-RX] Movement command — currentMode=");
@@ -1033,6 +1088,21 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       mqtt.publish(T_STAT_MODE, "MANUAL", true);
       Serial.println("[MODE] Manual mode — motors stopped, vacuum off");
 
+    } else if (p == "SLEEP") {
+      // ── NEW: SLEEP mode — suspends hardware to save battery ────────────────
+      Serial.println("[MODE] *** SWITCHING TO SLEEP MODE ***");
+      currentMode = "SLEEP";
+      isTeaching  = false;
+      isReplaying = false;
+      motorsStop();
+      setVacuumMotor(0);
+      rgb.clear();
+      rgb.show();
+      autoState   = AUTO_IDLE;
+      replayPhase = RP_IDLE;
+      mqtt.publish(T_STAT_MODE, "SLEEP", true);
+      Serial.println("[MODE] Sleep mode — hardware suspended, WiFi maintained");
+
     } else if (p == "TEACH") {
       // ── NEW: TEACH mode — starts recording ────────────────────────────────
       Serial.println("[MODE] *** SWITCHING TO TEACH MODE ***");
@@ -1045,8 +1115,10 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       motorsStop();
       resetEncoders();
       resetGyroAngleRef();
-      teachLastDistCm = 0.0f;
-      teachLastAngle  = gyroAngle;
+      teachSnapLeft  = 0;
+      teachSnapRight = 0;
+      teachSnapAngle = gyroAngle;
+      teachPrevCmd   = "STOP";
       mqtt.publish(T_STAT_MODE, "TEACH", true);
       publishTeachStatus();
       Serial.println("[TEACH] Recording started — drive the robot manually");
@@ -1146,6 +1218,8 @@ bool connectMQTT() {
   Serial.print("[MQTT] Subscribed: "); Serial.println(T_CMD_SUCTION);
   mqtt.subscribe(T_CMD_MODE);
   Serial.print("[MQTT] Subscribed: "); Serial.println(T_CMD_MODE);
+  mqtt.subscribe(T_CMD_SYS);
+  Serial.print("[MQTT] Subscribed: "); Serial.println(T_CMD_SYS);
 
   mqtt.setKeepAlive(30);
   mqtt.setSocketTimeout(5);
@@ -1289,43 +1363,64 @@ void setup() {
 }
 
 // ============================================================================
-// NEW: TEACH Recording — called every loop when mode == TEACH
+// TEACH Recording v2 — snapshot based, no encoder resets during recording
+// Records on command CHANGE not on continuous accumulation.
+// This means: when you press FORWARD, snapshot start.
+//             when you release (STOP) or change direction, snapshot end.
+//             The delta between start and end is the waypoint value.
 // ============================================================================
-void updateTeachRecording() {
+
+// Snapshot state — tracks the START of each movement segment
+static long  teachSnapLeft   = 0;
+static long  teachSnapRight  = 0;
+static float teachSnapAngle  = 0.0f;
+static String teachPrevCmd   = "STOP";
+
+void onTeachCommandChange(String newCmd) {
+  // Called from setMotorsByCmd when in TEACH mode
+  // Commits the PREVIOUS segment when command changes
+
   if (!isTeaching || currentMode != "TEACH") return;
 
-  float nowDist  = avgDistCm();
-  float nowAngle = gyroAngle;
-  float deltaLinear = nowDist  - teachLastDistCm;
-  float deltaTurn   = nowAngle - teachLastAngle;
+  String prev = teachPrevCmd;
+  teachPrevCmd = newCmd;
 
-  // Commit straight/backward waypoint when movement is significant
-  if ((lastMotorCmd == "FORWARD" || lastMotorCmd == "BACKWARD") && deltaLinear >= MIN_SEGMENT_CM) {
-    if (pathLength < MAX_WAYPOINTS) {
-      WaypointType wt = (lastMotorCmd == "FORWARD") ? WP_STRAIGHT : WP_BACKWARD;
-      recordedPath[pathLength++] = { wt, deltaLinear };
-      Serial.print("[TEACH] WP"); Serial.print(pathLength);
+  // --- Commit the segment that just ended ---
+  if (prev == "FORWARD" || prev == "BACKWARD") {
+    long nowLeft  = safeReadLeft();
+    long nowRight = safeReadRight();
+    float deltaL  = (nowLeft  - teachSnapLeft)  * DIST_PER_PULSE;
+    float deltaR  = (nowRight - teachSnapRight) * DIST_PER_PULSE;
+    float dist    = (deltaL + deltaR) / 2.0f;
+
+    if (dist >= MIN_SEGMENT_CM && pathLength < MAX_WAYPOINTS) {
+      WaypointType wt = (prev == "FORWARD") ? WP_STRAIGHT : WP_BACKWARD;
+      recordedPath[pathLength++] = { wt, dist };
+      Serial.print("[TEACH] COMMIT WP"); Serial.print(pathLength);
       Serial.print(wt == WP_STRAIGHT ? " STRAIGHT " : " BACKWARD ");
-      Serial.print(deltaLinear, 1); Serial.println("cm");
+      Serial.print(dist, 1); Serial.println("cm");
     }
-    // Reset encoder baseline for next segment
-    resetEncoders();
-    teachLastDistCm = 0.0f;
-    teachLastAngle  = gyroAngle;
   }
 
-  // Commit turn waypoint when rotation is significant
-  if ((lastMotorCmd == "LEFT" || lastMotorCmd == "RIGHT") && abs(deltaTurn) >= MIN_TURN_DEG) {
-    if (pathLength < MAX_WAYPOINTS) {
-      WaypointType wt = (deltaTurn > 0) ? WP_TURN_LEFT : WP_TURN_RIGHT;
-      recordedPath[pathLength++] = { wt, abs(deltaTurn) };
-      Serial.print("[TEACH] WP"); Serial.print(pathLength);
+  if (prev == "LEFT" || prev == "RIGHT") {
+    float deltaAngle = abs(gyroAngle - teachSnapAngle);
+    if (deltaAngle >= MIN_TURN_DEG && pathLength < MAX_WAYPOINTS) {
+      WaypointType wt = (gyroAngle > teachSnapAngle) ? WP_TURN_LEFT : WP_TURN_RIGHT;
+      recordedPath[pathLength++] = { wt, deltaAngle };
+      Serial.print("[TEACH] COMMIT WP"); Serial.print(pathLength);
       Serial.print(wt == WP_TURN_LEFT ? " TURN_L " : " TURN_R ");
-      Serial.print(abs(deltaTurn), 1); Serial.println("°");
+      Serial.print(deltaAngle, 1); Serial.println("°");
     }
-    teachLastAngle = nowAngle;
-    resetGyroAngleRef();
   }
+
+  // --- Snapshot the START of the new segment ---
+  teachSnapLeft  = safeReadLeft();
+  teachSnapRight = safeReadRight();
+  teachSnapAngle = gyroAngle;
+}
+
+void updateTeachRecording() {
+  if (!isTeaching || currentMode != "TEACH") return;
 
   // Publish teach status every 500ms
   static unsigned long lastTeachPub = 0;
@@ -1380,10 +1475,22 @@ void runReplayMode() {
     case RP_MOVING: {
       float traveled = avgDistCm();
 
-      // Obstacle check during forward replay
+      // Safety timeout — if taking more than 10s to travel any segment, skip it
+      static unsigned long moveStartMs = 0;
+      if (replayPhase == RP_MOVING && moveStartMs == 0) moveStartMs = millis();
+      if (millis() - moveStartMs > 10000) {
+        Serial.println("[REPLAY] Segment timeout — skipping");
+        motorsStop();
+        moveStartMs = 0;
+        replayIndex++;
+        replayPhase = RP_PAUSE;
+        break;
+      }
+
       if (wp.type == WP_STRAIGHT && sonarFront < OBSTACLE_CM) {
         motorsStop();
-        Serial.print("[REPLAY] Obstacle at "); Serial.print(sonarFront); Serial.println("cm — waiting...");
+        moveStartMs = 0;
+        Serial.print("[REPLAY] Obstacle at "); Serial.print(sonarFront); Serial.println("cm");
         replayPauseTimer = millis();
         replayPhase = RP_OBSTACLE;
         break;
@@ -1391,6 +1498,7 @@ void runReplayMode() {
 
       if (traveled >= wp.value) {
         motorsStop();
+        moveStartMs = 0;
         replayIndex++;
         replayPauseTimer = millis();
         replayPhase = RP_PAUSE;
@@ -1401,8 +1509,38 @@ void runReplayMode() {
 
     case RP_TURNING: {
       float turned = gyroAngleDelta();
-      if (turned >= wp.value) {
+
+      // Stop slightly early (2°) to account for motor coast
+      float stopAt = wp.value - 2.0f;
+      if (stopAt < 5.0f) stopAt = wp.value;  // don't undershoot tiny turns
+
+      if (turned >= stopAt) {
         motorsStop();
+        delay(80);  // let robot physically stop before measuring final angle
+
+        // Check if we overshot or undershot
+        float finalTurned = gyroAngleDelta();
+        float error = wp.value - finalTurned;
+
+        Serial.print("[REPLAY] Turn done — target="); Serial.print(wp.value, 1);
+        Serial.print("° actual="); Serial.print(finalTurned, 1);
+        Serial.print("° error="); Serial.println(error, 1);
+
+        // Small correction if error > 3°
+        if (abs(error) > 3.0f) {
+          Serial.print("[REPLAY] Correcting turn error of "); Serial.print(error, 1); Serial.println("°");
+          resetGyroAngleRef();
+          if (error > 0) motorsLeft(); else motorsRight();
+          unsigned long corrStart = millis();
+          // Correction micro-turn — run until corrected or 500ms timeout
+          while (gyroAngleDelta() < abs(error) - 1.0f && millis() - corrStart < 500) {
+            updateGyroAngle();
+            delay(5);
+          }
+          motorsStop();
+          delay(50);
+        }
+
         replayIndex++;
         replayPauseTimer = millis();
         replayPhase = RP_PAUSE;
@@ -1659,11 +1797,13 @@ void loop() {
   }
 
   // Gyro update — FIX-5: every 20ms (was 50ms) for accurate turns
-  updateGyroAngle();
+  if (currentMode != "SLEEP") {
+    updateGyroAngle();
+  }
 
   // ── FIX-1: NON-BLOCKING SONAR ROTATION ─────────────────────────────────────
   // One sensor read per 35ms pass — replaces the 150ms blocking readAllSonars()
-  if (millis() - lastSonarMs >= 35) {
+  if (currentMode != "SLEEP" && millis() - lastSonarMs >= 35) {
     lastSonarMs    = millis();
     prevSonarFront = sonarFront;
     switch (sonarTurn) {
@@ -1714,6 +1854,13 @@ void loop() {
   if (millis() - lastOdometryPub >= 200) {
     publishOdometry();
     lastOdometryPub = millis();
+  }
+
+  // ── Auto-Sleep Check ────────────────────────────────────────────────────────
+  if (currentMode == "MANUAL" && millis() - lastInputMs > AUTO_SLEEP_MS) {
+    Serial.println("[SLEEP] 5 minutes idle. Auto-sleeping.");
+    mqtt.publish(T_CMD_MODE, "SLEEP"); 
+    lastInputMs = millis(); // Prevent spamming
   }
 
   // ── Obstacle safety check — every loop pass ─────────────────────────────────

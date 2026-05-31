@@ -243,6 +243,11 @@ export const MqttProvider = ({ children }) => {
     publishCommand('cmd/mode', mode);
   };
 
+  const sendSystemCmd = (cmd) => {
+    console.log("[CMD] System command:", cmd);
+    publishCommand('cmd/system', cmd);
+  };
+
   // Start connection immediately
   useEffect(() => {
     connect();
@@ -269,6 +274,7 @@ export const MqttProvider = ({ children }) => {
       setMovement,
       sendSuction,
       sendMode,
+      sendSystemCmd,                 // NEW
       logMessages,                   // Log queue for LiveLogs
       publishCommand                 // Exposed for BottomCommandDock
     }}>

@@ -1,10 +1,10 @@
 import React from 'react';
 import { useMqtt } from '../MqttContext';
 import { useTheme } from '../ThemeContext';
-import { Wifi, WifiOff, Moon, Sun, Bot } from 'lucide-react';
+import { Wifi, WifiOff, Moon, Sun, Bot, Power, RefreshCw } from 'lucide-react';
 
 const TopBar = () => {
-  const { isConnected, mqttConnected, robotMode, sendMode } = useMqtt();
+  const { isConnected, mqttConnected, robotMode, sendMode, sendSystemCmd } = useMqtt();
   const { isDark, toggleTheme } = useTheme();
 
   const modes = [
@@ -33,12 +33,12 @@ const TopBar = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <div style={{ 
                 width: '8px', height: '8px', borderRadius: '50%',
-                background: isConnected ? 'var(--accent-success)' : 'var(--accent-danger)',
-                boxShadow: `0 0 8px ${isConnected ? 'var(--accent-success)' : 'var(--accent-danger)'}`,
+                background: !isConnected ? 'var(--accent-danger)' : (robotMode === 'SLEEP' ? '#f59e0b' : 'var(--accent-success)'),
+                boxShadow: `0 0 8px ${!isConnected ? 'var(--accent-danger)' : (robotMode === 'SLEEP' ? '#f59e0b' : 'var(--accent-success)')}`,
                 animation: isConnected ? 'pulse 2s infinite' : 'none'
               }} />
               <span className="text-secondary" style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px' }}>
-                {isConnected ? 'ROBOT ONLINE' : 'ROBOT OFFLINE'}
+                {!isConnected ? 'ROBOT OFFLINE' : (robotMode === 'SLEEP' ? 'STANDBY (SLEEP)' : 'ROBOT ONLINE')}
               </span>
             </div>
           </div>
@@ -66,9 +66,62 @@ const TopBar = () => {
         </button>
       </div>
 
-      {/* Right side: Cloud & Theme */}
-      <div className="top-bar-right">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'var(--bg-color)', borderRadius: 'var(--inner-radius)' }}>
+      {/* Right side: Cloud, System Controls & Theme */}
+      <div className="top-bar-right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        
+        {/* Recalibrate Button */}
+        <button 
+          onClick={() => {
+            if (window.confirm("Ensure the robot is perfectly stationary on a flat floor before calibrating. Proceed?")) {
+              sendSystemCmd('CALIBRATE');
+            }
+          }}
+          title="Recalibrate Sensors"
+          style={{ 
+            background: 'var(--bg-color)', border: '1px solid var(--border-color)', 
+            color: 'var(--text-primary)', cursor: 'pointer', 
+            padding: '8px 12px', borderRadius: 'var(--inner-radius)',
+            display: 'flex', alignItems: 'center', gap: '6px',
+            fontSize: '12px', fontWeight: 600,
+            transition: 'all 0.2s'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--border-color)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'var(--bg-color)'}
+        >
+          <RefreshCw size={14} className="text-primary" />
+          <span>Calibrate</span>
+        </button>
+
+        {/* Sleep/Wake Button */}
+        <button 
+          onClick={() => {
+            if (robotMode === 'SLEEP') sendMode('MANUAL');
+            else sendMode('SLEEP');
+          }}
+          title={robotMode === 'SLEEP' ? "Wake Robot" : "Put to Sleep"}
+          style={{ 
+            background: robotMode === 'SLEEP' ? 'rgba(245, 158, 11, 0.1)' : 'var(--bg-color)', 
+            border: `1px solid ${robotMode === 'SLEEP' ? '#f59e0b' : 'var(--border-color)'}`, 
+            color: robotMode === 'SLEEP' ? '#f59e0b' : 'var(--text-primary)', 
+            cursor: 'pointer', 
+            padding: '8px 12px', borderRadius: 'var(--inner-radius)',
+            display: 'flex', alignItems: 'center', gap: '6px',
+            fontSize: '12px', fontWeight: 600,
+            transition: 'all 0.2s'
+          }}
+          onMouseEnter={(e) => {
+            if (robotMode !== 'SLEEP') e.currentTarget.style.background = 'var(--border-color)';
+          }}
+          onMouseLeave={(e) => {
+            if (robotMode !== 'SLEEP') e.currentTarget.style.background = 'var(--bg-color)';
+          }}
+        >
+          <Power size={14} />
+          <span>{robotMode === 'SLEEP' ? 'Wake' : 'Sleep'}</span>
+        </button>
+
+        {/* Cloud Connection */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'var(--bg-color)', borderRadius: 'var(--inner-radius)', marginLeft: '4px' }}>
           {mqttConnected ? (
             <Wifi size={16} className="text-success" />
           ) : (
