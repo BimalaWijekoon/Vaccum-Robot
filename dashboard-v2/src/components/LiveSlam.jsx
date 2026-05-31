@@ -103,9 +103,9 @@ const LiveSlam = () => {
     const { w, h } = dimensions;
     const dpr = window.devicePixelRatio || 1;
 
-    if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
-      canvas.width = w * dpr;
-      canvas.height = h * dpr;
+    if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
       ctx.scale(dpr, dpr);
     }
 
@@ -234,14 +234,23 @@ const LiveSlam = () => {
 
     ctx.restore();
 
-    let animationId = requestAnimationFrame(render);
-    return animationId;
   }, [dimensions]);
 
   useEffect(() => {
-    let animationId = render();
+    let animationId;
+    let running = true;
+
+    const loop = () => {
+      if (!running) return;
+      render();
+      animationId = requestAnimationFrame(loop);
+    };
+
+    animationId = requestAnimationFrame(loop);
+
     return () => {
-      if (animationId) cancelAnimationFrame(animationId);
+      running = false;
+      cancelAnimationFrame(animationId);
     };
   }, [render]);
 
