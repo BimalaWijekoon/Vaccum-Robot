@@ -56,6 +56,11 @@
 #define SIDE_CLEAR_CM            7
 #define VACUUM_TURBO_SPEED       255
 #define VACUUM_ECO_SPEED         160
+// Straight-line encoder correction
+#define LEFT_SPEED_TRIM      0      // manual baseline offset if one wheel is consistently slower
+#define RIGHT_SPEED_TRIM     0      // start both at 0, tune later if needed
+#define CORRECTION_GAIN      1.5f   // how hard to correct — increase if still drifting, decrease if oscillating
+#define CORRECTION_INTERVAL  50     // check every 50ms
 // ============================================================================
 
 #include <WiFi.h>
@@ -185,6 +190,7 @@ unsigned long lastReconnectAttempt = 0;
 unsigned long reconnectDelay      = 2000;
 unsigned long lastGyroLog         = 0;
 unsigned long lastLoopLog         = 0;
+unsigned long lastCorrectionMs    = 0;
 
 uint8_t sonarTurn = 0;   // FIX-1: rotating sensor index (0=front,1=left,2=right)
 
@@ -492,6 +498,60 @@ void checkObstaclesWhileMoving() {
       motorsStop();
       // runReplayMode() handles transition to RP_OBSTACLE
     }
+  }
+}
+
+// ============================================================================
+// FIX-8: Encoder-based straight-line correction
+// Compares left vs right pulse counts while driving straight and nudges
+// the faster wheel down to keep the robot tracking in a straight line.
+// Works in MANUAL, TEACH, AUTO forward, and REPLAY forward.
+// ============================================================================
+void correctStraightLine() {
+
+  // Only active during straight driving
+  bool drivingStraight = (
+    (currentMode == "MANUAL" && (lastMotorCmd == "FORWARD" || lastMotorCmd == "BACKWARD")) ||
+    (currentMode == "TEACH"  && (lastMotorCmd == "FORWARD" || lastMotorCmd == "BACKWARD")) ||
+    (currentMode == "AUTO"   && autoState == AUTO_MOVING_FORWARD)  ||
+    (currentMode == "REPLAY" && replayPhase == RP_MOVING)
+  );
+
+  if (!drivingStraight) {
+    lastCorrectionMs = 0;   // reset timer so next straight starts fresh
+    return;
+  }
+
+  if (millis() - lastCorrectionMs < CORRECTION_INTERVAL) return;
+  lastCorrectionMs = millis();
+
+  long lPulses = safeReadLeft();
+  long rPulses = safeReadRight();
+  long diff    = lPulses - rPulses;   // positive = left is running faster
+
+  int leftSpeed  = constrain(DRIVE_SPEED + LEFT_SPEED_TRIM,  40, 255);
+  int rightSpeed = constrain(DRIVE_SPEED + RIGHT_SPEED_TRIM, 40, 255);
+
+  if (diff > 0) {
+    // Left wheel is faster — pull it back
+    leftSpeed  = constrain(leftSpeed  - (int)(diff * CORRECTION_GAIN), 40, 255);
+  } else if (diff < 0) {
+    // Right wheel is faster — pull it back
+    rightSpeed = constrain(rightSpeed + (int)(diff * CORRECTION_GAIN), 40, 255);
+  }
+
+  // Apply directly to PWM — bypasses setLeftMotor/setRightMotor intentionally
+  // so we don't re-trigger direction logic on every correction tick
+  analogWrite(PIN_LEFT_ENA,  leftSpeed);
+  analogWrite(PIN_RIGHT_ENB, rightSpeed);
+
+  // Only log when actually correcting (diff > 2 to ignore noise)
+  if (abs(diff) > 2) {
+    Serial.print("[CORRECT] L="); Serial.print(lPulses);
+    Serial.print(" R=");          Serial.print(rPulses);
+    Serial.print(" diff=");       Serial.print(diff);
+    Serial.print(" Lspd=");       Serial.print(leftSpeed);
+    Serial.print(" Rspd=");       Serial.println(rightSpeed);
   }
 }
 
@@ -1658,6 +1718,7 @@ void loop() {
 
   // ── Obstacle safety check — every loop pass ─────────────────────────────────
   checkObstaclesWhileMoving();
+  correctStraightLine();   // FIX-8: encoder-based drift correction
 
   // ── Mode state machines ─────────────────────────────────────────────────────
   if (currentMode == "AUTO")   runAutoMode();
