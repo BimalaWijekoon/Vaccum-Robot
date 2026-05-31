@@ -1,5 +1,7 @@
 # 🤖 VacBot — Autonomous Vacuum Robot
 
+![Mission Control Dashboard](assets/dashboard.png)
+
 Welcome to the VacBot project! This guide explains how to set up the hardware, flash the firmware, run the simulator, and use the web dashboard.
 
 **Latest Updates (v2.0)**:
