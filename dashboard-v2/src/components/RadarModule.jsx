@@ -13,8 +13,8 @@ export const RadarModule = () => {
   const front = sonars?.front || 999;
   const left = sonars?.left || 999;
   const right = sonars?.right || 999;
-  const rearLeft = sonars?.rear_left || 999;
-  const rearRight = sonars?.rear_right || 999;
+  const frontLeft = sonars?.front_left || 999;
+  const frontRight = sonars?.front_right || 999;
   const safeDirections = navigation?.safe_directions?.split(',') || [];
   const isApproaching = navigation?.approaching || false;
 
@@ -55,15 +55,15 @@ export const RadarModule = () => {
       {front < 150 && <circle cx={getCoord(front, 0).x} cy={getCoord(front, 0).y} r="5" fill={getColor(front)} />}
       {left < 150 && <circle cx={getCoord(left, -90).x} cy={getCoord(left, -90).y} r="5" fill={getColor(left)} />}
       {right < 150 && <circle cx={getCoord(right, 90).x} cy={getCoord(right, 90).y} r="5" fill={getColor(right)} />}
-      {rearLeft < 150 && <circle cx={getCoord(rearLeft, -135).x} cy={getCoord(rearLeft, -135).y} r="5" fill={getColor(rearLeft)} />}
-      {rearRight < 150 && <circle cx={getCoord(rearRight, 135).x} cy={getCoord(rearRight, 135).y} r="5" fill={getColor(rearRight)} />}
+      {frontLeft < 150 && <circle cx={getCoord(frontLeft, -45).x} cy={getCoord(frontLeft, -45).y} r="5" fill={getColor(frontLeft)} />}
+      {frontRight < 150 && <circle cx={getCoord(frontRight, 45).x} cy={getCoord(frontRight, 45).y} r="5" fill={getColor(frontRight)} />}
 
       {/* Approaching pulse */}
       {isApproaching && robotMode === 'AUTO' && (
         <circle cx={cx} cy={cy} r="20" fill="none" stroke="var(--accent-warning)" strokeWidth="2" opacity="0.5" />
       )}
     </svg>
-  ), [front, left, right, rearLeft, rearRight, safeDirections, isApproaching, robotMode]);
+  ), [front, left, right, frontLeft, frontRight, safeDirections, isApproaching, robotMode]);
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>

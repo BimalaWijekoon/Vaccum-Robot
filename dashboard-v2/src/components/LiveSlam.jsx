@@ -88,14 +88,14 @@ const LiveSlam = () => {
     const front = sonars?.front || distance?.cm || 999;
     const left = sonars?.left || 999;
     const right = sonars?.right || 999;
-    const rearLeft = sonars?.rear_left || 999;
-    const rearRight = sonars?.rear_right || 999;
+    const frontLeft = sonars?.front_left || 999;
+    const frontRight = sonars?.front_right || 999;
 
     if (front < 150) addObstacle(front, 0);
     if (left < 150) addObstacle(left, -Math.PI / 2);
     if (right < 150) addObstacle(right, Math.PI / 2);
-    if (rearLeft < 150) addObstacle(rearLeft, -3 * Math.PI / 4);
-    if (rearRight < 150) addObstacle(rearRight, 3 * Math.PI / 4);
+    if (frontLeft < 150) addObstacle(frontLeft, -Math.PI / 4);
+    if (frontRight < 150) addObstacle(frontRight, Math.PI / 4);
   }, [sonars, distance]);
 
   // Canvas rendering loop
