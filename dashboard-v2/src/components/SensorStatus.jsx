@@ -8,6 +8,8 @@ const SensorStatus = () => {
   const front = sonars?.front || distance?.cm || 999;
   const left = sonars?.left || 999;
   const right = sonars?.right || 999;
+  const rearLeft = sonars?.rear_left || 999;
+  const rearRight = sonars?.rear_right || 999;
 
   const getStatus = (dist) => {
     if (dist < 30) return { text: 'BLOCKED', color: 'var(--accent-danger)' };
@@ -50,6 +52,8 @@ const SensorStatus = () => {
         {renderSensorRow('FRONT', front)}
         {renderSensorRow('LEFT', left)}
         {renderSensorRow('RIGHT', right)}
+        {renderSensorRow('REAR L.', rearLeft)}
+        {renderSensorRow('REAR R.', rearRight)}
       </div>
     </div>
   );

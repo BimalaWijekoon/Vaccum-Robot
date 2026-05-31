@@ -4,8 +4,28 @@ import { useTheme } from '../ThemeContext';
 import { Wifi, WifiOff, Moon, Sun, Bot, Power, RefreshCw } from 'lucide-react';
 
 const TopBar = () => {
-  const { isConnected, mqttConnected, robotMode, sendMode, sendSystemCmd } = useMqtt();
+  const { isConnected, mqttConnected, robotMode, sendMode, sendSystemCmd, battery } = useMqtt();
   const { isDark, toggleTheme } = useTheme();
+
+  const getModeColor = (mode) => {
+    switch (mode) {
+      case 'MANUAL': return '#3b82f6';
+      case 'AUTO': return '#10b981';
+      case 'TEACH': return '#8b5cf6';
+      case 'REPLAY': return '#06b6d4';
+      case 'SLEEP': return '#6b7280';
+      default: return 'var(--accent-primary)';
+    }
+  };
+  const modeColor = getModeColor(robotMode);
+
+  const getBatteryColor = (pct) => {
+    if (pct > 70) return 'var(--accent-success)';
+    if (pct > 40) return '#facc15';
+    if (pct > 15) return 'var(--accent-warning)';
+    return 'var(--accent-danger)';
+  };
+  const batColor = battery?.percent !== undefined ? getBatteryColor(battery.percent) : 'var(--text-tertiary)';
 
   const modes = [
     { id: 'MANUAL', label: 'Manual Control' },
@@ -15,12 +35,17 @@ const TopBar = () => {
   ];
 
   return (
-    <div className="top-bar">
+    <div className="top-bar" style={{ 
+      borderBottom: `2px solid ${modeColor}`, 
+      boxShadow: `0 4px 20px ${modeColor}25`,
+      transition: 'all 0.4s ease'
+    }}>
       {/* Left side: Brand and Connection Info */}
       <div className="brand-section" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ 
-            background: 'var(--accent-primary)', 
+            background: modeColor, 
+            transition: 'background 0.4s ease',
             padding: '8px', 
             borderRadius: '12px',
             color: '#fff',
@@ -51,6 +76,7 @@ const TopBar = () => {
           <button
             key={m.id}
             className={`mode-tab ${robotMode === m.id ? 'active' : ''}`}
+            style={robotMode === m.id ? { color: modeColor, borderBottomColor: modeColor } : {}}
             onClick={() => sendMode(m.id)}
             disabled={m.disabled}
           >
@@ -120,13 +146,29 @@ const TopBar = () => {
           <span>{robotMode === 'SLEEP' ? 'Wake' : 'Sleep'}</span>
         </button>
 
+        {/* Battery Status */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'var(--bg-color)', borderRadius: 'var(--inner-radius)', marginLeft: '4px' }}>
+          <div style={{ 
+            width: '8px', height: '8px', borderRadius: '50%',
+            background: batColor,
+            boxShadow: `0 0 8px ${batColor}`
+          }} />
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-secondary)' }}>BATTERY</span>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: batColor }}>
+              {battery?.percent !== undefined ? `${battery.percent}%` : '--%'}
+            </span>
+          </div>
+        </div>
+
         {/* Cloud Connection */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'var(--bg-color)', borderRadius: 'var(--inner-radius)', marginLeft: '4px' }}>
-          {mqttConnected ? (
-            <Wifi size={16} className="text-success" />
-          ) : (
-            <WifiOff size={16} className="text-danger" />
-          )}
+          <div style={{ 
+            width: '8px', height: '8px', borderRadius: '50%',
+            background: mqttConnected ? 'var(--accent-success)' : 'var(--accent-danger)',
+            boxShadow: `0 0 8px ${mqttConnected ? 'var(--accent-success)' : 'var(--accent-danger)'}`,
+            animation: mqttConnected ? 'pulse 2s infinite' : 'none'
+          }} />
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-secondary)' }}>CLOUD SERVER</span>
             <span style={{ fontSize: '12px', fontWeight: 600, color: mqttConnected ? 'var(--accent-success)' : 'var(--accent-danger)' }}>

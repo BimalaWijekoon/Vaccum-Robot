@@ -48,12 +48,12 @@
 #define ROW_LENGTH_CM            150.0f
 #define ROW_WIDTH_CM             20.0f
 #define MAX_ROWS                 10
-#define OBSTACLE_CM              15
+#define OBSTACLE_CM              10
 #define TURN_DONE_DEG            88.0f
-#define DRIVE_SPEED              155
-#define PIVOT_SPEED              155
-#define FRONT_STOP_CM            9
-#define SIDE_CLEAR_CM            7
+#define DRIVE_SPEED              95
+#define PIVOT_SPEED              95
+#define FRONT_STOP_CM            8
+#define SIDE_CLEAR_CM            6
 #define VACUUM_TURBO_SPEED       255
 #define VACUUM_ECO_SPEED         160
 // Straight-line encoder correction
@@ -86,6 +86,8 @@
 #define PIN_ECHO_FRONT  11   // Front ultrasonic echo
 #define PIN_ECHO_LEFT   12   // Left ultrasonic echo
 #define PIN_ECHO_RIGHT  13   // Right ultrasonic echo
+#define PIN_ECHO_REAR_LEFT  14  // Rear left ultrasonic echo
+#define PIN_ECHO_REAR_RIGHT 21  // Rear right ultrasonic echo
 #define PIN_BATTERY     20   // Battery voltage ADC
 #define PIN_VAC_PWM     38   // Vacuum motor PWM (TB6612FNG)
 #define PIN_VAC_IN1     47   // Vacuum motor direction AIN1+BIN1
@@ -183,6 +185,8 @@ float  distanceCm = 400.0f;
 long sonarFront    = 400;   // FIX-2: default 400 not 999
 long sonarLeft     = 400;
 long sonarRight    = 400;
+long sonarRearLeft  = 400;
+long sonarRearRight = 400;
 long prevSonarFront = 400;
 bool isApproaching  = false;
 String safeDirString = "FORWARD,LEFT,RIGHT,BACKWARD";
@@ -207,6 +211,8 @@ struct Sonars {
   long front;
   long left;
   long right;
+  long rearLeft;
+  long rearRight;
 };
 
 // ============================================================================
@@ -410,30 +416,49 @@ void setMotorsByCmd(String cmd) {
   if (currentMode == "TEACH") {
     onTeachCommandChange(cmd);
   }
-  // MANUAL + TEACH mode obstacle blocking
+  // MANUAL + TEACH mode directional obstacle blocking
   if (currentMode == "MANUAL" || currentMode == "TEACH") {
+    // Scenario 1: Front Blocked
     if (cmd == "FORWARD" && sonarFront <= OBSTACLE_CM) {
-      Serial.print("[CMD] BLOCKED — front obstacle at ");
+      Serial.print("[CMD] BLOCKED - front obstacle at ");
       Serial.print(sonarFront);
       Serial.println("cm, command ignored");
       motorsStop();
       lastMotorCmd = "STOP";
       return;
     }
+    // Scenario 2: Rear Blocked
+    if (cmd == "BACKWARD" && (sonarRearLeft <= OBSTACLE_CM || sonarRearRight <= OBSTACLE_CM)) {
+      Serial.println("[CMD] BLOCKED - rear obstacle detected, command ignored");
+      motorsStop();
+      lastMotorCmd = "STOP";
+      return;
+    }
+    // Scenario 3: Sides Blocked
     if (cmd == "LEFT" && sonarLeft <= SIDE_CLEAR_CM) {
-      Serial.print("[CMD] CAUTION — left obstacle at ");
-      Serial.print(sonarLeft);
-      Serial.println("cm, but allowing (user control)");
+      Serial.println("[CMD] BLOCKED - left side too close, command ignored");
+      motorsStop();
+      lastMotorCmd = "STOP";
+      return;
     }
     if (cmd == "RIGHT" && sonarRight <= SIDE_CLEAR_CM) {
-      Serial.print("[CMD] CAUTION — right obstacle at ");
-      Serial.print(sonarRight);
-      Serial.println("cm, but allowing (user control)");
+      Serial.println("[CMD] BLOCKED - right side too close, command ignored");
+      motorsStop();
+      lastMotorCmd = "STOP";
+      return;
     }
   }
 
   if      (cmd == "FORWARD")  motorsForward();
-  else if (cmd == "BACKWARD") motorsBackward();
+  else if (cmd == "BACKWARD") {
+    // ── REAR SAFETY CHECK ────────────────────────────────────────────────────
+    if (sonarRearLeft <= OBSTACLE_CM || sonarRearRight <= OBSTACLE_CM) {
+      Serial.println("[MOTOR] BACKWARD command blocked! Rear obstacle detected.");
+      motorsStop();
+    } else {
+      motorsBackward();
+    }
+  }
   else if (cmd == "LEFT")     motorsLeft();
   else if (cmd == "RIGHT")    motorsRight();
   else if (cmd == "STOP")     motorsStop();
@@ -448,17 +473,28 @@ void setMotorsByCmd(String cmd) {
 // ============================================================================
 void checkObstaclesWhileMoving() {
 
-  // MANUAL + TEACH: stop immediately on any front obstacle
+  // MANUAL + TEACH: directional stopping
   if (currentMode == "MANUAL" || currentMode == "TEACH") {
-    if (sonarFront < OBSTACLE_CM) {
-      static unsigned long lastManualStop = 0;
-      if (millis() - lastManualStop > 500) {
-        Serial.print("[SAFETY] ");
-        Serial.print(currentMode);
-        Serial.print(": Front obstacle at ");
-        Serial.print(sonarFront);
-        Serial.println("cm — stopping immediately!");
-        lastManualStop = millis();
+    // Scenario 1: Stop if driving FORWARD into a front obstacle
+    if (sonarFront < OBSTACLE_CM && lastMotorCmd == "FORWARD") {
+      static unsigned long lastManualStopF = 0;
+      if (millis() - lastManualStopF > 500) {
+        Serial.print("[SAFETY] "); Serial.print(currentMode);
+        Serial.print(": Front obstacle at "); Serial.print(sonarFront);
+        Serial.println("cm - stopping forward motion!");
+        lastManualStopF = millis();
+      }
+      motorsStop();
+      lastMotorCmd = "STOP";
+      return;
+    }
+    // Scenario 2: Stop if driving BACKWARD into a rear obstacle
+    if ((sonarRearLeft < OBSTACLE_CM || sonarRearRight < OBSTACLE_CM) && lastMotorCmd == "BACKWARD") {
+      static unsigned long lastManualStopB = 0;
+      if (millis() - lastManualStopB > 500) {
+        Serial.print("[SAFETY] "); Serial.print(currentMode);
+        Serial.println(": Rear obstacle - stopping backward motion!");
+        lastManualStopB = millis();
       }
       motorsStop();
       lastMotorCmd = "STOP";
@@ -519,74 +555,89 @@ void checkObstaclesWhileMoving() {
 // ============================================================================
 void correctStraightLine() {
 
-  // Only active during straight driving
-  bool drivingStraight = (
-    (currentMode == "MANUAL" && (lastMotorCmd == "FORWARD" || lastMotorCmd == "BACKWARD")) ||
-    (currentMode == "TEACH"  && (lastMotorCmd == "FORWARD" || lastMotorCmd == "BACKWARD")) ||
-    (currentMode == "AUTO"   && autoState == AUTO_MOVING_FORWARD)  ||
-    (currentMode == "REPLAY" && replayPhase == RP_MOVING)
-  );
+  // ── 1. Determine if we are driving straight and direction ──────────────────
+  bool drivingStraight = false;
+  bool isBackward = false;
 
-  // When not driving straight — reset snapshots so next straight starts clean
-  static long prevLeft  = 0;
-  static long prevRight = 0;
-  static int  leftPWM   = DRIVE_SPEED;
-  static int  rightPWM  = DRIVE_SPEED;
+  if (currentMode == "MANUAL" || currentMode == "TEACH") {
+    if (lastMotorCmd == "FORWARD")  { drivingStraight = true; isBackward = false; }
+    if (lastMotorCmd == "BACKWARD") { drivingStraight = true; isBackward = true; }
+  } else if (currentMode == "AUTO") {
+    if (autoState == AUTO_MOVING_FORWARD || autoState == AUTO_SHIFTING) {
+      drivingStraight = true; 
+      isBackward = false; 
+    }
+  } else if (currentMode == "REPLAY") {
+    if (replayPhase == RP_MOVING && replayIndex < pathLength) {
+      drivingStraight = true;
+      isBackward = (recordedPath[replayIndex].type == WP_BACKWARD);
+    }
+  }
+
+  // ── 2. Handle State Transitions ─────────────────────────────────────────────
+  static float targetHeading = 0.0f;
+  static int   leftPWM       = DRIVE_SPEED;
+  static int   rightPWM      = DRIVE_SPEED;
+
+  // PID State Variables
+  static float integralError = 0.0f;
+  static float prevError     = 0.0f;
 
   if (!drivingStraight) {
-    prevLeft  = safeReadLeft();
-    prevRight = safeReadRight();
-    leftPWM   = DRIVE_SPEED;
-    rightPWM  = DRIVE_SPEED;
+    // Not moving straight: Continuously capture the heading as the future target
+    targetHeading    = gyroAngle;
+    leftPWM          = DRIVE_SPEED;
+    rightPWM         = DRIVE_SPEED;
+    integralError    = 0.0f;
+    prevError        = 0.0f;
     lastCorrectionMs = millis();
     return;
   }
 
-  if (millis() - lastCorrectionMs < CORRECTION_INTERVAL) return;
-  lastCorrectionMs = millis();
+  unsigned long now = millis();
+  unsigned long dtMs = now - lastCorrectionMs;
+  if (dtMs < CORRECTION_INTERVAL) return;
+  lastCorrectionMs = now;
+  float dt_sec = dtMs / 1000.0f;
 
-  // Read current totals
-  long nowLeft  = safeReadLeft();
-  long nowRight = safeReadRight();
+  // ── 3. Sensor Fusion / Advanced PID Gyro Heading Hold ──────────────────────
+  // Calculate Error (Positive error = robot drifted left/CCW)
+  float headingError = targetHeading - gyroAngle;
 
-  // Pulses gained ONLY in this interval — not since movement started
-  long deltaLeft  = nowLeft  - prevLeft;
-  long deltaRight = nowRight - prevRight;
+  // Integral Term (fixes steady-state drift from uneven motors, bounded anti-windup)
+  integralError += headingError * dt_sec;
+  integralError = constrain(integralError, -20.0f, 20.0f);
 
-  // Save snapshots for next interval
-  prevLeft  = nowLeft;
-  prevRight = nowRight;
+  // Derivative Term (dampens oscillations and overshoot)
+  float derivative = (headingError - prevError) / dt_sec;
+  prevError = headingError;
 
-  // How different are the two wheels this interval?
-  long diff = deltaLeft - deltaRight;  // positive = left faster this interval
+  // Advanced PID Constants
+  float Kp = 6.0f;   // Immediate proportional reaction
+  float Ki = 0.5f;   // Steady-state correction
+  float Kd = 2.0f;   // Oscillation dampening
 
-  // Nudge PWM — small steps only, no sudden jumps
-  if (diff > 1) {
-    // Left faster — slow left slightly
-    leftPWM  = constrain(leftPWM  - 2, 50, 255);
-    rightPWM = constrain(rightPWM + 1, 50, 255);
-  } else if (diff < -1) {
-    // Right faster — slow right slightly
-    rightPWM = constrain(rightPWM - 2, 50, 255);
-    leftPWM  = constrain(leftPWM  + 1, 50, 255);
-  } else {
-    // Wheels matched — gently drift both back toward DRIVE_SPEED
-    if (leftPWM  < DRIVE_SPEED) leftPWM++;
-    if (leftPWM  > DRIVE_SPEED) leftPWM--;
-    if (rightPWM < DRIVE_SPEED) rightPWM++;
-    if (rightPWM > DRIVE_SPEED) rightPWM--;
+  int correction = (int)(Kp * headingError + Ki * integralError + Kd * derivative);
+
+  // If driving backwards, the physical steering effect is reversed
+  if (isBackward) {
+    correction = -correction;
   }
 
-  // Apply
+  // Differential Drive Steering
+  leftPWM  = constrain(DRIVE_SPEED + correction, 50, 255);
+  rightPWM = constrain(DRIVE_SPEED - correction, 50, 255);
+
+  // Apply directly to motor PWM pins
   analogWrite(PIN_LEFT_ENA,  leftPWM);
   analogWrite(PIN_RIGHT_ENB, rightPWM);
 
-  if (abs(diff) > 1) {
-    Serial.print("[CORRECT] dL="); Serial.print(deltaLeft);
-    Serial.print(" dR=");          Serial.print(deltaRight);
-    Serial.print(" diff=");        Serial.print(diff);
-    Serial.print(" Lspd=");        Serial.print(leftPWM);
-    Serial.print(" Rspd=");        Serial.println(rightPWM);
+  if (abs(headingError) > 0.5f) {
+    Serial.print("[GYRO-CORRECT] tgt="); Serial.print(targetHeading, 1);
+    Serial.print(" act=");               Serial.print(gyroAngle, 1);
+    Serial.print(" err=");               Serial.print(headingError, 1);
+    Serial.print(" L=");                 Serial.print(leftPWM);
+    Serial.print(" R=");                 Serial.println(rightPWM);
   }
 }
 
@@ -762,11 +813,6 @@ void publishBattery() {
   Serial.print("  Health=");     Serial.print(health);
   Serial.print("  Alert=");      Serial.println(alert ? "YES!" : "No");
 
-  if      (percent > 70) setRGB(0, 255, 0);
-  else if (percent > 40) setRGB(255, 255, 0);
-  else if (percent > 15) setRGB(255, 80, 0);
-  else                   setRGB(255, 0, 0);
-
   if (currentMode == "AUTO" && !alert) {
     int vacSpeed = percent > 70 ? VACUUM_TURBO_SPEED : VACUUM_ECO_SPEED;
     Serial.print("[BATTERY] Auto vacuum speed adjust -> ");
@@ -830,6 +876,10 @@ Sonars readAllSonars() {
   delay(30);
   s.right = readSonar(PIN_ECHO_RIGHT);
   delay(30);
+  s.rearLeft = readSonar(PIN_ECHO_REAR_LEFT);
+  delay(30);
+  s.rearRight = readSonar(PIN_ECHO_REAR_RIGHT);
+  delay(30);
   Serial.print("[SONAR] Front="); Serial.print(s.front);
   Serial.print("cm  Left=");      Serial.print(s.left);
   Serial.print("cm  Right=");     Serial.print(s.right);
@@ -856,9 +906,11 @@ void publishSonars() {
   Serial.print("cm R=");                    Serial.print(sonarRight);
   Serial.println("cm");
   StaticJsonDocument<128> doc;
-  doc["front"] = (int)sonarFront;
-  doc["left"]  = (int)sonarLeft;
-  doc["right"] = (int)sonarRight;
+  doc["front"]      = (int)sonarFront;
+  doc["left"]       = (int)sonarLeft;
+  doc["right"]      = (int)sonarRight;
+  doc["rear_left"]  = (int)sonarRearLeft;
+  doc["rear_right"] = (int)sonarRearRight;
   String payload; serializeJson(doc, payload);
   mqtt.publish(T_STAT_SONARS, payload.c_str());
 }
@@ -882,9 +934,10 @@ void publishDistance() {
   Serial.print("cm  Obstacle="); Serial.println(obstacleDetected ? "YES" : "No");
   if (obstacleDetected && !wasObstacle) Serial.println("[DISTANCE] *** OBSTACLE DETECTED! ***");
   if (!obstacleDetected && wasObstacle) Serial.println("[DISTANCE] Obstacle cleared.");
-  if (obstacleDetected && currentMode == "MANUAL") {
-    Serial.println("[DISTANCE] Manual mode — stopping motors due to obstacle");
+  if (obstacleDetected && currentMode == "MANUAL" && lastMotorCmd == "FORWARD") {
+    Serial.println("[DISTANCE] Manual mode - stopping forward motors due to obstacle");
     motorsStop();
+    lastMotorCmd = "STOP";
   }
   StaticJsonDocument<128> doc;
   doc["cm"]       = (int)sonarFront;
@@ -1019,13 +1072,10 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       calibrateGyro();
       determineGyroSign();
       resetEncoders();
+      setRGB(255, 0, 255); // Flash purple
+      delay(100);
       resetGyroAngleRef();
-      if (currentMode == "SLEEP") {
-        rgb.clear();
-        rgb.show();
-      } else {
-        setRGB(0, 255, 0);
-      }
+      updateStatusLED(); // Restore mode color
       mqtt.publish("vacbot/status/system", "Calibrated successfully");
       Serial.println("[SYS] Calibration complete.");
     }
@@ -1102,8 +1152,6 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       isReplaying = false;
       motorsStop();
       setVacuumMotor(0);
-      rgb.clear();
-      rgb.show();
       autoState   = AUTO_IDLE;
       replayPhase = RP_IDLE;
       mqtt.publish(T_STAT_MODE, "SLEEP", true);
@@ -1282,6 +1330,8 @@ void setup() {
   pinMode(PIN_ECHO_FRONT, INPUT);
   pinMode(PIN_ECHO_LEFT,  INPUT);
   pinMode(PIN_ECHO_RIGHT, INPUT);
+  pinMode(PIN_ECHO_REAR_LEFT, INPUT);
+  pinMode(PIN_ECHO_REAR_RIGHT, INPUT);
   digitalWrite(PIN_TRIG, LOW);
   Serial.println("[SETUP] Ultrasonic sensors OK");
 
@@ -1308,11 +1358,11 @@ void setup() {
 
   calibrateGyro();
   determineGyroSign();
+  updateStatusLED();
 
   Serial.println();
   Serial.println("[WIFI] ========== Connecting to WiFi ==========");
   Serial.print("[WIFI] SSID: "); Serial.println(WIFI_SSID);
-  setRGB(0, 0, 255);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   unsigned long wifiStart = millis();
   int dotCount = 0;
@@ -1323,7 +1373,6 @@ void setup() {
   }
   Serial.println();
   if (WiFi.status() == WL_CONNECTED) {
-    setRGB(0, 255, 0);
     Serial.println("[WIFI] *** CONNECTED SUCCESSFULLY! ***");
     Serial.print("[WIFI] IP Address: "); Serial.println(WiFi.localIP());
     Serial.print("[WIFI] MAC Address: "); Serial.println(WiFi.macAddress());
@@ -1331,7 +1380,6 @@ void setup() {
     Serial.print("[WIFI] Channel: "); Serial.println(WiFi.channel());
   } else {
     Serial.println("[WIFI] *** CONNECTION FAILED (timeout 10s) ***");
-    setRGB(255, 165, 0);
   }
   Serial.println("[WIFI] ==========================================");
 
@@ -1490,7 +1538,7 @@ void runReplayMode() {
         break;
       }
 
-      if (wp.type == WP_STRAIGHT && sonarFront < OBSTACLE_CM) {
+      if (wp.type == WP_STRAIGHT && sonarFront < FRONT_STOP_CM) {
         motorsStop();
         moveStartMs = 0;
         Serial.print("[REPLAY] Obstacle at "); Serial.print(sonarFront); Serial.println("cm");
@@ -1558,8 +1606,8 @@ void runReplayMode() {
       break;
 
     case RP_OBSTACLE:
-      if (sonarFront > OBSTACLE_CM) {
-        Serial.println("[REPLAY] Obstacle cleared — resuming");
+      if (sonarFront > FRONT_STOP_CM) {
+        Serial.println("[REPLAY] Obstacle cleared - resuming");
         motorsForward();
         replayPhase = RP_MOVING;
       } else if (millis() - replayPauseTimer > 3000) {
@@ -1635,9 +1683,9 @@ void runAutoMode() {
         avoidPhase    = AVOID_WAITING;
         avoidTurnDir  = td;
         autoState     = AUTO_OBSTACLE_AVOID;
-      } else if (obstacleDetected) {
+      } else if (sonarFront < FRONT_STOP_CM) {
         Serial.print("[AUTO] Obstacle detected at ");
-        Serial.print(distanceCm, 1); Serial.println("cm — stopping & entering obstacle avoidance");
+        Serial.print(distanceCm, 1); Serial.println("cm - stopping & entering obstacle avoidance");
         motorsStop();
         obstacleTimer = millis();
         obstacleRetry = 0;
@@ -1733,14 +1781,32 @@ void runAutoMode() {
       }
       break;
 
-    case AUTO_TURNING_1:
-      if (gyroAngleDelta() >= TURN_DONE_DEG) {
+    case AUTO_TURNING_1: {
+      float turned = gyroAngleDelta();
+      float stopAt = TURN_DONE_DEG - 2.0f;
+      if (turned >= stopAt) {
+        motorsStop(); delay(80);
+        float finalTurned = gyroAngleDelta();
+        float error = TURN_DONE_DEG - finalTurned;
+        
+        if (abs(error) > 3.0f) {
+          Serial.print("[AUTO] Correcting turn 1 error: "); Serial.println(error, 1);
+          resetGyroAngleRef();
+          if (error > 0) motorsLeft(); else motorsRight();
+          unsigned long corrStart = millis();
+          while (gyroAngleDelta() < abs(error) - 1.0f && millis() - corrStart < 500) {
+            updateGyroAngle(); delay(5);
+          }
+          motorsStop(); delay(50);
+        }
+
         Serial.print("[AUTO] Turn 1 complete — delta=");
-        Serial.print(gyroAngleDelta(), 1); Serial.println("° — shifting forward");
+        Serial.print(finalTurned, 1); Serial.println("° — shifting forward");
         motorsStop(); resetEncoders(); motorsForward();
         autoState = AUTO_SHIFTING;
       }
       break;
+    }
 
     case AUTO_SHIFTING:
       if (avgDistCm() >= ROW_WIDTH_CM) {
@@ -1752,14 +1818,32 @@ void runAutoMode() {
       }
       break;
 
-    case AUTO_TURNING_2:
-      if (gyroAngleDelta() >= TURN_DONE_DEG) {
+    case AUTO_TURNING_2: {
+      float turned = gyroAngleDelta();
+      float stopAt = TURN_DONE_DEG - 2.0f;
+      if (turned >= stopAt) {
+        motorsStop(); delay(80);
+        float finalTurned = gyroAngleDelta();
+        float error = TURN_DONE_DEG - finalTurned;
+        
+        if (abs(error) > 3.0f) {
+          Serial.print("[AUTO] Correcting turn 2 error: "); Serial.println(error, 1);
+          resetGyroAngleRef();
+          if (error > 0) motorsLeft(); else motorsRight();
+          unsigned long corrStart = millis();
+          while (gyroAngleDelta() < abs(error) - 1.0f && millis() - corrStart < 500) {
+            updateGyroAngle(); delay(5);
+          }
+          motorsStop(); delay(50);
+        }
+
         Serial.print("[AUTO] Turn 2 complete — delta=");
-        Serial.print(gyroAngleDelta(), 1); Serial.println("° — starting next row");
+        Serial.print(finalTurned, 1); Serial.println("° — starting next row");
         motorsStop();
         autoState = AUTO_START_ROW;
       }
       break;
+    }
 
     case AUTO_COMPLETE:
       motorsStop();
@@ -1769,10 +1853,22 @@ void runAutoMode() {
   }
 }
 
+void updateStatusLED() {
+  if (currentMode == "MANUAL") setRGB(0, 100, 255);      // Blue
+  else if (currentMode == "AUTO") setRGB(0, 255, 0);     // Green
+  else if (currentMode == "TEACH") setRGB(128, 0, 255);  // Purple
+  else if (currentMode == "REPLAY") setRGB(0, 255, 255); // Cyan
+  else if (currentMode == "SLEEP") { rgb.clear(); rgb.show(); } // Off
+}
+
 // ============================================================================
-// Main Loop
+// LOOP - Main Control Loop
 // ============================================================================
 void loop() {
+  if (currentMode != prevMode) {
+    updateStatusLED();
+    prevMode = currentMode;
+  }
 
   // Throttled loop heartbeat every 10 seconds
   if (millis() - lastLoopLog >= 10000) {
@@ -1813,8 +1909,10 @@ void loop() {
       case 0: sonarFront = readSonar(PIN_ECHO_FRONT); break;
       case 1: sonarLeft  = readSonar(PIN_ECHO_LEFT);  break;
       case 2: sonarRight = readSonar(PIN_ECHO_RIGHT);  break;
+      case 3: sonarRearLeft = readSonar(PIN_ECHO_REAR_LEFT); break;
+      case 4: sonarRearRight = readSonar(PIN_ECHO_REAR_RIGHT); break;
     }
-    sonarTurn = (sonarTurn + 1) % 3;
+    sonarTurn = (sonarTurn + 1) % 5;
 
     // Refresh derived state after reading front sensor
     if (sonarTurn == 1) {   // just completed front read

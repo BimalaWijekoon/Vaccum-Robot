@@ -231,9 +231,10 @@ export const MqttProvider = ({ children }) => {
   };
   
   const sendSuction = (val) => {
-    console.log("[CMD] Suction command:", val);
+    console.log("[CMD] Suction command:", val, "%");
     setSuction(val);
-    publishCommand('cmd/suction', val);
+    const pwmVal = Math.round((val / 100) * 255);
+    publishCommand('cmd/suction', pwmVal);
   };
   
   const sendMode = (mode) => {

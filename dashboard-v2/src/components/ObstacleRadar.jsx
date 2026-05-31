@@ -73,6 +73,8 @@ const ObstacleRadar = () => {
       const currentSonars = sonarsRef.current || {};
       checkBlip(0, currentSonars.front || 999);
       checkBlip(90, currentSonars.right || 999);
+      checkBlip(135, currentSonars.rear_right || 999);
+      checkBlip(225, currentSonars.rear_left || 999);
       checkBlip(270, currentSonars.left || 999);
 
       // 4. Draw Blips
