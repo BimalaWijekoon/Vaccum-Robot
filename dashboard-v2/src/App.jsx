@@ -7,9 +7,11 @@ import ControlPad from './components/ControlPad';
 import MapAndRadar from './components/MapAndRadar';
 import ActivityPanel from './components/ActivityPanel';
 import TeachPanel from './components/TeachPanel';
+import SystemController from './components/SystemController';
 const App = () => {
   return (
     <div className="app-container">
+      <SystemController />
       <TopBar />
 
       <div className="left-panel">

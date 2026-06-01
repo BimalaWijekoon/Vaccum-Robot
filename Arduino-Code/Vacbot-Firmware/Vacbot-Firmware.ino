@@ -70,6 +70,9 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_NeoPixel.h>
 #include <ArduinoJson.h>
+#include <ArduinoOTA.h>
+#include <ESPmDNS.h>
+#include <WiFiUdp.h>
 
 // ============================================================================
 // GPIO Pin Definitions (from main.cpp hardware truth)
@@ -109,6 +112,8 @@
 #define T_STAT_DISTANCE "vacbot/status/distance"
 #define T_STAT_MODE     "vacbot/status/mode"
 #define T_STAT_AUTO     "vacbot/status/auto"
+#define T_CMD_HEARTBEAT "vacbot/cmd/heartbeat"
+#define T_STAT_LOGS     "vacbot/status/logs"
 #define T_STAT_ONLINE   "vacbot/status/online"
 #define T_STAT_SONARS   "vacbot/status/sonars"
 #define T_STAT_NAV      "vacbot/status/navigation"
@@ -195,6 +200,8 @@ String safeDirString = "FORWARD,LEFT,RIGHT,BACKWARD";
 // Timing
 unsigned long lastBatteryPub      = 0;
 unsigned long lastSonarMs         = 0;    // FIX-1: non-blocking sonar timer
+unsigned long lastInputMs = 0;       // For AUTO_SLEEP
+unsigned long lastHeartbeatRx = 0;   // For Wi-Fi Failsafe
 unsigned long lastMqttSonarMs     = 0;    // FIX-1: MQTT sonar publish throttle
 unsigned long lastOdometryPub     = 0;    // NEW-4: odometry publish timer
 unsigned long lastAutoPub         = 0;
@@ -756,7 +763,18 @@ float gyroAngleDelta() { return abs(gyroAngle - gyroAngleRef); }
 // Battery Functions
 // ============================================================================
 float readVoltage() {
-  return analogRead(PIN_BATTERY) * (3.3f / 4095.0f) * 5.0f;
+  static float smoothedVoltage = 11.1f; // Start at nominal 3S
+  int raw = analogRead(PIN_BATTERY);
+  
+  // ESP32 ADC2 often returns 4095 (max) when conflicting with Wi-Fi
+  // A 3S LiPo is max 12.6V, so a raw value yielding 16.5V (4095) is impossible
+  if (raw < 4000 && raw > 100) { 
+    float currentV = raw * (3.3f / 4095.0f) * 5.0f;
+    // Simple low-pass filter (moving average)
+    smoothedVoltage = (smoothedVoltage * 0.9f) + (currentV * 0.1f);
+  }
+  
+  return smoothedVoltage;
 }
 
 int voltageToPercent(float voltage) {
@@ -1032,6 +1050,11 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
   lastInputMs = millis(); // Reset idle timer on any incoming message
 
+  if (strcmp(topic, T_CMD_HEARTBEAT) == 0) {
+    lastHeartbeatRx = millis();
+    return;
+  }
+
   // ── System Commands ────────────────────────────────────────────────────────
   if (strcmp(topic, T_CMD_SYS) == 0) {
     if (p == "CALIBRATE") {
@@ -1245,6 +1268,8 @@ bool connectMQTT() {
   Serial.print("[MQTT] Subscribed: "); Serial.println(T_CMD_MODE);
   mqtt.subscribe(T_CMD_SYS);
   Serial.print("[MQTT] Subscribed: "); Serial.println(T_CMD_SYS);
+  mqtt.subscribe(T_CMD_HEARTBEAT);
+  Serial.print("[MQTT] Subscribed: "); Serial.println(T_CMD_HEARTBEAT);
 
   mqtt.setKeepAlive(30);
   mqtt.setSocketTimeout(5);
@@ -1349,6 +1374,16 @@ void setup() {
     Serial.print("[WIFI] MAC Address: "); Serial.println(WiFi.macAddress());
     Serial.print("[WIFI] RSSI: "); Serial.print(WiFi.RSSI()); Serial.println(" dBm");
     Serial.print("[WIFI] Channel: "); Serial.println(WiFi.channel());
+    
+    ArduinoOTA.setHostname("VacBot-ESP32");
+    ArduinoOTA.onStart([]() { Serial.println("[OTA] Start"); motorsStop(); });
+    ArduinoOTA.onEnd([]() { Serial.println("\n[OTA] End"); });
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+      Serial.printf("[OTA] Progress: %u%%\r", (progress / (total / 100)));
+    });
+    ArduinoOTA.onError([](ota_error_t error) { Serial.printf("[OTA] Error[%u]\n", error); });
+    ArduinoOTA.begin();
+    Serial.println("[OTA] Ready");
   } else {
     Serial.println("[WIFI] *** CONNECTION FAILED (timeout 10s) ***");
   }
@@ -1833,9 +1868,73 @@ void updateStatusLED() {
 }
 
 // ============================================================================
+// LEVEL 1 FEATURES: STALL AND IMU DETECTION
+// ============================================================================
+void checkStall() {
+  static unsigned long lastStallCheck = 0;
+  static long lastStallL = 0;
+  static long lastStallR = 0;
+
+  if (millis() - lastStallCheck >= 1500) {
+    long curL = safeReadLeft();
+    long curR = safeReadRight();
+    if (leftPWM > 50 || rightPWM > 50) { // If motors are commanded
+      if (abs(curL - lastStallL) < 5 && abs(curR - lastStallR) < 5) {
+        Serial.println("[SAFETY] STALL DETECTED! Motors powered but no encoder movement.");
+        mqtt.publish(T_STAT_LOGS, "[SAFETY] Stall detected! Stopping.");
+        motorsStop();
+        lastMotorCmd = "STOP";
+        currentMode = "MANUAL";
+        mqtt.publish(T_STAT_MODE, "MANUAL", true);
+      }
+    }
+    lastStallL = curL;
+    lastStallR = curR;
+    lastStallCheck = millis();
+  }
+}
+
+void checkIMUBump() {
+  static unsigned long lastBumpCheck = 0;
+  static float lastAccelX = 0, lastAccelY = 0;
+  if (millis() - lastBumpCheck >= 50) {
+    sensors_event_t a, g, temp;
+    mpu.getEvent(&a, &g, &temp);
+    if (lastBumpCheck > 0) { // skip first read
+      float diffX = abs(a.acceleration.x - lastAccelX);
+      float diffY = abs(a.acceleration.y - lastAccelY);
+      if (diffX > 15.0 || diffY > 15.0) { // 1.5G spike
+        if (lastMotorCmd != "STOP") {
+          Serial.println("[SAFETY] IMU Bump Detected!");
+          mqtt.publish(T_STAT_LOGS, "[SAFETY] IMU Bump Detected! Stopping.");
+          motorsStop();
+          lastMotorCmd = "STOP";
+        }
+      }
+    }
+    lastAccelX = a.acceleration.x;
+    lastAccelY = a.acceleration.y;
+    lastBumpCheck = millis();
+  }
+}
+
+// ============================================================================
 // LOOP - Main Control Loop
 // ============================================================================
 void loop() {
+  ArduinoOTA.handle();
+  checkStall();
+  checkIMUBump();
+
+  // Wi-Fi Failsafe
+  if (currentMode == "MANUAL" && millis() - lastHeartbeatRx > 3000) {
+    if (lastMotorCmd != "STOP") {
+      Serial.println("[SAFETY] WiFi heartbeat lost! Stopping motors.");
+      mqtt.publish(T_STAT_LOGS, "[SAFETY] WiFi heartbeat lost! Stopping.");
+      motorsStop();
+      lastMotorCmd = "STOP";
+    }
+  }
   if (currentMode != prevMode) {
     updateStatusLED();
     prevMode = currentMode;

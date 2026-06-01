@@ -12,11 +12,46 @@ const LiveSlam = () => {
   const robotPosRef = useRef({ x: 0, y: 0, heading: 0 });
   const sessionStartRef = useRef(Date.now());
   const [dimensions, setDimensions] = useState({ w: 600, h: 400 });
+  const [zoom, setZoom] = useState(1);
 
   // Constants
-  const SCALE = 2.5; // pixels per cm
+  const BASE_SCALE = 2.5; // pixels per cm
   const MAX_HISTORY = 500;
   const MAX_OBSTACLES = 200;
+
+  // Load from LocalStorage
+  useEffect(() => {
+    const savedObstacles = localStorage.getItem('vacbot_slam_obstacles');
+    const savedPath = localStorage.getItem('vacbot_slam_path');
+    if (savedObstacles) obstaclesRef.current = JSON.parse(savedObstacles);
+    if (savedPath) posHistoryRef.current = JSON.parse(savedPath);
+  }, []);
+
+  // Save to LocalStorage periodically
+  useEffect(() => {
+    const interval = setInterval(() => {
+      localStorage.setItem('vacbot_slam_obstacles', JSON.stringify(obstaclesRef.current));
+      localStorage.setItem('vacbot_slam_path', JSON.stringify(posHistoryRef.current));
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Action Handlers
+  const handleClear = () => {
+    obstaclesRef.current = [];
+    posHistoryRef.current = [{ x: robotPosRef.current.x, y: robotPosRef.current.y }];
+    localStorage.removeItem('vacbot_slam_obstacles');
+    localStorage.removeItem('vacbot_slam_path');
+  };
+
+  const handleExport = () => {
+    if (!canvasRef.current) return;
+    const dataUrl = canvasRef.current.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `slam_map_${new Date().toISOString()}.png`;
+    a.click();
+  };
 
   // Resize handling
   useEffect(() => {
@@ -119,19 +154,21 @@ const LiveSlam = () => {
 
     ctx.clearRect(0, 0, w, h);
 
+    const scale = BASE_SCALE * zoom;
+
     // World-to-screen transform
     const toScreen = (wx, wy) => ({
-      sx: centerX + (wx - robot.x) * SCALE,
-      sy: centerY + (wy - robot.y) * SCALE
+      sx: centerX + (wx - robot.x) * scale,
+      sy: centerY + (wy - robot.y) * scale
     });
 
-    // ── Grid ──
-    const gridSpacing = 25;
+    // 🕸️ Grid 🕸️
+    const gridSpacing = 25 * zoom;
     ctx.strokeStyle = 'rgba(150, 150, 150, 0.1)';
     ctx.lineWidth = 1;
 
-    const offsetX = (centerX - robot.x * SCALE) % gridSpacing;
-    const offsetY = (centerY - robot.y * SCALE) % gridSpacing;
+    const offsetX = (centerX - robot.x * scale) % gridSpacing;
+    const offsetY = (centerY - robot.y * scale) % gridSpacing;
 
     for (let x = offsetX - gridSpacing; x < w; x += gridSpacing) {
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
@@ -194,15 +231,15 @@ const LiveSlam = () => {
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 4]);
     
-    ctx.beginPath(); ctx.arc(centerX, centerY, 50 * SCALE, 0, Math.PI * 2); ctx.stroke();
-    ctx.beginPath(); ctx.arc(centerX, centerY, 100 * SCALE, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(centerX, centerY, 50 * scale, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(centerX, centerY, 100 * scale, 0, Math.PI * 2); ctx.stroke();
     ctx.setLineDash([]);
     
     // Ring labels
     ctx.fillStyle = 'rgba(150, 150, 150, 0.5)';
     ctx.font = '9px sans-serif';
-    ctx.fillText('50cm', centerX + (50 * SCALE) + 4, centerY - 4);
-    ctx.fillText('100cm', centerX + (100 * SCALE) + 4, centerY - 4);
+    ctx.fillText('50cm', centerX + (50 * scale) + 4, centerY - 4);
+    ctx.fillText('100cm', centerX + (100 * scale) + 4, centerY - 4);
 
     // ── Robot Sprite (Triangle) ──
     const heading = robot.heading;
@@ -279,6 +316,14 @@ const LiveSlam = () => {
       {/* HTML5 Canvas Engine */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
         <canvas ref={canvasRef} style={{ display: 'block', width: '100%', height: '100%' }} />
+      </div>
+
+      {/* Map Controls */}
+      <div style={{ position: 'absolute', top: '16px', right: '80px', zIndex: 3, display: 'flex', gap: '8px' }}>
+        <button onClick={() => setZoom(z => Math.min(z + 0.2, 3))} style={{ padding: '4px 8px', background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', cursor: 'pointer', color: 'var(--text-primary)' }}>+</button>
+        <button onClick={() => setZoom(z => Math.max(z - 0.2, 0.5))} style={{ padding: '4px 8px', background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', cursor: 'pointer', color: 'var(--text-primary)' }}>-</button>
+        <button onClick={handleClear} style={{ padding: '4px 8px', background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', cursor: 'pointer', color: 'var(--text-primary)' }}>Clear</button>
+        <button onClick={handleExport} style={{ padding: '4px 8px', background: 'var(--accent-primary)', border: 'none', borderRadius: '4px', cursor: 'pointer', color: '#fff' }}>Export</button>
       </div>
 
       {/* Bottom Stats Modules */}
