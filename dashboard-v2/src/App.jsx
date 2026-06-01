@@ -6,8 +6,8 @@ import WheelMetrics from './components/WheelMetrics';
 import ControlPad from './components/ControlPad';
 import MapAndRadar from './components/MapAndRadar';
 import ActivityPanel from './components/ActivityPanel';
-import TeachPanel from './components/TeachPanel';
 import SystemController from './components/SystemController';
+import EventConsole from './components/EventConsole';
 const App = () => {
   return (
     <div className="app-container">
@@ -18,13 +18,17 @@ const App = () => {
         <PowerSystem />
         <SensorStatus />
         <WheelMetrics />
-        <TeachPanel />
       </div>
 
       <div className="center-panel">
         <MapAndRadar />
-        <div className="control-pad-wrapper">
-          <ControlPad />
+        <div style={{ display: 'flex', gap: '10px', flexShrink: 0 }}>
+          <div className="control-pad-wrapper" style={{ flex: 2, display: 'flex' }}>
+            <ControlPad />
+          </div>
+          <div style={{ flex: 1.2, display: 'flex' }}>
+            <EventConsole />
+          </div>
         </div>
       </div>
 

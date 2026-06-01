@@ -50,8 +50,8 @@
 #define MAX_ROWS                 10
 #define OBSTACLE_CM              10
 #define TURN_DONE_DEG            88.0f
-#define DRIVE_SPEED              95
-#define PIVOT_SPEED              95
+#define DRIVE_SPEED              140
+#define PIVOT_SPEED              140
 #define FRONT_STOP_CM            8
 #define SIDE_CLEAR_CM            6
 #define VACUUM_TURBO_SPEED       255
@@ -200,7 +200,6 @@ String safeDirString = "FORWARD,LEFT,RIGHT,BACKWARD";
 // Timing
 unsigned long lastBatteryPub      = 0;
 unsigned long lastSonarMs         = 0;    // FIX-1: non-blocking sonar timer
-unsigned long lastInputMs = 0;       // For AUTO_SLEEP
 unsigned long lastHeartbeatRx = 0;   // For Wi-Fi Failsafe
 unsigned long lastMqttSonarMs     = 0;    // FIX-1: MQTT sonar publish throttle
 unsigned long lastOdometryPub     = 0;    // NEW-4: odometry publish timer
@@ -1110,6 +1109,11 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     Serial.print(" -> ");
     Serial.println(p);
 
+    // Completely halt everything before transitioning modes
+    motorsStop();
+    setVacuumMotor(0);
+    currentSuction = 0;
+
     if (p == "AUTO") {
       // ── Original AUTO mode — ZERO changes ─────────────────────────────────
       Serial.println("[MODE] *** SWITCHING TO AUTO MODE ***");
@@ -1871,27 +1875,7 @@ void updateStatusLED() {
 // LEVEL 1 FEATURES: STALL AND IMU DETECTION
 // ============================================================================
 void checkStall() {
-  static unsigned long lastStallCheck = 0;
-  static long lastStallL = 0;
-  static long lastStallR = 0;
-
-  if (millis() - lastStallCheck >= 1500) {
-    long curL = safeReadLeft();
-    long curR = safeReadRight();
-    if (leftPWM > 50 || rightPWM > 50) { // If motors are commanded
-      if (abs(curL - lastStallL) < 5 && abs(curR - lastStallR) < 5) {
-        Serial.println("[SAFETY] STALL DETECTED! Motors powered but no encoder movement.");
-        mqtt.publish(T_STAT_LOGS, "[SAFETY] Stall detected! Stopping.");
-        motorsStop();
-        lastMotorCmd = "STOP";
-        currentMode = "MANUAL";
-        mqtt.publish(T_STAT_MODE, "MANUAL", true);
-      }
-    }
-    lastStallL = curL;
-    lastStallR = curR;
-    lastStallCheck = millis();
-  }
+  // Completely removed per user request
 }
 
 void checkIMUBump() {
@@ -1926,15 +1910,7 @@ void loop() {
   checkStall();
   checkIMUBump();
 
-  // Wi-Fi Failsafe
-  if (currentMode == "MANUAL" && millis() - lastHeartbeatRx > 3000) {
-    if (lastMotorCmd != "STOP") {
-      Serial.println("[SAFETY] WiFi heartbeat lost! Stopping motors.");
-      mqtt.publish(T_STAT_LOGS, "[SAFETY] WiFi heartbeat lost! Stopping.");
-      motorsStop();
-      lastMotorCmd = "STOP";
-    }
-  }
+  // Wi-Fi Failsafe completely removed per user request
   if (currentMode != prevMode) {
     updateStatusLED();
     prevMode = currentMode;

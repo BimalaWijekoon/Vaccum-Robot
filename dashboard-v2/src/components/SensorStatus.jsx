@@ -25,15 +25,15 @@ const SensorStatus = () => {
         background: 'var(--bg-color)', padding: '8px 12px', borderRadius: 'var(--inner-radius)',
         marginBottom: '6px'
       }}>
-        <span style={{ fontWeight: 700, fontSize: '11px', color: 'var(--text-secondary)' }}>{label}</span>
+        <span style={{ fontWeight: 700, fontSize: '10.5px', color: 'var(--text-secondary)' }}>{label}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ color: 'var(--text-tertiary)', fontSize: '10px' }}>—</span>
+          <span style={{ color: 'var(--text-tertiary)', fontSize: '9.5px' }}>—</span>
           <div style={{ 
             width: '6px', height: '6px', borderRadius: '50%', 
             background: status.color,
             boxShadow: `0 0 4px ${status.color}`
           }} />
-          <span style={{ color: status.color, fontWeight: 700, fontSize: '10px', width: '45px' }}>
+          <span style={{ color: status.color, fontWeight: 700, fontSize: '9.5px', width: '45px' }}>
             {status.text}
           </span>
         </div>

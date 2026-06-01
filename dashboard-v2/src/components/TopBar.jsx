@@ -1,11 +1,71 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useMqtt } from '../MqttContext';
 import { useTheme } from '../ThemeContext';
-import { Wifi, WifiOff, Moon, Sun, Bot, Power, RefreshCw } from 'lucide-react';
+import { useVoiceCommands } from '../hooks/useVoiceCommands';
+import { Wifi, WifiOff, Moon, Sun, Bot, Power, RefreshCw, Mic, MicOff } from 'lucide-react';
 
 const TopBar = () => {
-  const { isConnected, mqttConnected, robotMode, sendMode, sendSystemCmd, battery } = useMqtt();
+  const { isConnected, mqttConnected, robotMode, sendMode, sendSystemCmd, sendSuction, battery } = useMqtt();
   const { isDark, toggleTheme } = useTheme();
+  const { isListening, toggleListening, lastCommand } = useVoiceCommands();
+
+  // Global Keyboard Shortcuts
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      // Ignore if typing in an input
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.repeat) return; // Prevent spam
+
+      const key = e.key.toLowerCase();
+
+      switch (key) {
+        case 'tab':
+          e.preventDefault(); // Prevent focus switching
+          if (robotMode === 'MANUAL') sendMode('AUTO');
+          else if (robotMode === 'AUTO') sendMode('TEACH');
+          else if (robotMode === 'TEACH') sendMode('REPLAY');
+          else sendMode('MANUAL');
+          break;
+        case 'm':
+          e.preventDefault();
+          toggleListening();
+          break;
+        case 'c':
+          e.preventDefault();
+          if (window.confirm("Ensure the robot is perfectly stationary on a flat floor before calibrating. Proceed?")) {
+            sendSystemCmd('CALIBRATE');
+          }
+          break;
+        case 'z':
+          e.preventDefault();
+          if (robotMode === 'SLEEP') sendMode('MANUAL');
+          else sendMode('SLEEP');
+          break;
+        case 'o':
+        case '0':
+          e.preventDefault();
+          sendSuction(0);
+          break;
+        case '1':
+          e.preventDefault();
+          sendSuction(30);
+          break;
+        case '2':
+          e.preventDefault();
+          sendSuction(60);
+          break;
+        case '3':
+          e.preventDefault();
+          sendSuction(100);
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [robotMode, sendMode, sendSuction, sendSystemCmd, toggleListening]);
 
   const getModeColor = (mode) => {
     switch (mode) {
@@ -95,6 +155,28 @@ const TopBar = () => {
       {/* Right side: Cloud, System Controls & Theme */}
       <div className="top-bar-right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         
+        {/* Voice Control Button */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '8px' }}>
+          {lastCommand && <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontStyle: 'italic', maxWidth: '100px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>"{lastCommand}"</span>}
+          <button 
+            onClick={toggleListening}
+            title={isListening ? "Stop Listening" : "Start Voice Control"}
+            style={{ 
+              background: isListening ? 'rgba(239, 68, 68, 0.1)' : 'var(--bg-color)', 
+              border: `1px solid ${isListening ? '#ef4444' : 'var(--border-color)'}`, 
+              color: isListening ? '#ef4444' : 'var(--text-primary)', 
+              cursor: 'pointer', 
+              padding: '8px', borderRadius: '50%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: isListening ? '0 0 10px rgba(239, 68, 68, 0.4)' : 'none',
+              animation: isListening ? 'pulse 2s infinite' : 'none',
+              transition: 'all 0.2s'
+            }}
+          >
+            {isListening ? <Mic size={16} /> : <MicOff size={16} />}
+          </button>
+        </div>
+
         {/* Recalibrate Button */}
         <button 
           onClick={() => {

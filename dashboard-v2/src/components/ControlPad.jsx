@@ -3,9 +3,8 @@ import { useMqtt } from '../MqttContext';
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Navigation, Fan } from 'lucide-react';
 
 const ControlPad = () => {
-  const { setMovement, sendSuction, robotMode } = useMqtt();
+  const { setMovement, suction, sendSuction, robotMode } = useMqtt();
   const [activeKey, setActiveKey] = useState(null);
-  const [suction, setSuction] = useState(0);
 
   const isManual = robotMode === 'MANUAL' || robotMode === 'TEACH';
 
@@ -62,11 +61,6 @@ const ControlPad = () => {
     };
   }, [isManual, activeKey]);
 
-  const handleSuctionChange = (val) => {
-    setSuction(val);
-    sendSuction(val);
-  };
-
   const renderNavButton = (dir, Icon, action) => {
     const isActive = activeKey === dir;
     return (
@@ -89,7 +83,7 @@ const ControlPad = () => {
   };
 
   return (
-    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', flex: 1, width: '100%' }}>
       {/* Navigation Card */}
       <div className="card" style={{ flex: 1 }}>
         <div className="card-header">
@@ -144,7 +138,7 @@ const ControlPad = () => {
             type="range" 
             min="0" max="100" 
             value={suction} 
-            onChange={(e) => handleSuctionChange(parseInt(e.target.value))}
+            onChange={(e) => sendSuction(parseInt(e.target.value))}
             disabled={!isManual}
             style={{
               width: '100%',
@@ -155,10 +149,10 @@ const ControlPad = () => {
           />
 
           <div style={{ display: 'flex', gap: '6px' }}>
-            {[{label: 'ECO', val: 30}, {label: 'NORM', val: 60}, {label: 'MAX', val: 100}].map(mode => (
+            {[{label: 'LOW (1)', val: 30}, {label: 'MED (2)', val: 60}, {label: 'MAX (3)', val: 100}].map(mode => (
               <button
                 key={mode.label}
-                onClick={() => handleSuctionChange(mode.val)}
+                onClick={() => sendSuction(mode.val)}
                 disabled={!isManual}
                 style={{
                   flex: 1, padding: '6px 0',
@@ -175,6 +169,23 @@ const ControlPad = () => {
                 {mode.label}
               </button>
             ))}
+            <button
+                onClick={() => sendSuction(0)}
+                disabled={!isManual}
+                style={{
+                  flex: 1, padding: '6px 0',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  color: suction === 0 ? 'var(--accent-danger)' : 'var(--text-secondary)',
+                  border: `1px solid ${suction === 0 ? 'var(--accent-danger)' : 'var(--border-color)'}`,
+                  borderRadius: '6px',
+                  fontSize: '10px', fontWeight: 700,
+                  cursor: isManual ? 'pointer' : 'not-allowed',
+                  opacity: isManual ? 1 : 0.5,
+                  transition: 'all 0.2s'
+                }}
+              >
+                KILL (O)
+            </button>
           </div>
 
           {!isManual && (

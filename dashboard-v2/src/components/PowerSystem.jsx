@@ -1,6 +1,6 @@
 import React from 'react';
 import { useMqtt } from '../MqttContext';
-import { Battery, Zap, AlertTriangle } from 'lucide-react';
+import { Battery, Zap, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 const PowerSystem = () => {
   const { battery } = useMqtt();
@@ -64,11 +64,24 @@ const PowerSystem = () => {
         </div>
       </div>
 
-      {isCritical && (
+      {!isCritical ? (
+        <div style={{ 
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+          width: '100%', padding: '10px', marginTop: '6px',
+          background: 'rgba(16, 185, 129, 0.1)', 
+          border: '1px solid var(--accent-success)',
+          color: 'var(--accent-success)',
+          borderRadius: 'var(--inner-radius)',
+          fontWeight: 600, fontSize: '12px'
+        }}>
+          <CheckCircle2 size={15} />
+          OPTIMAL — READY FOR MISSION
+        </div>
+      ) : (
         <button style={{ 
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
           width: '100%', padding: '10px', marginTop: '6px',
-          background: 'rgba(229, 62, 62, 0.1)', 
+          background: 'rgba(239, 68, 68, 0.1)', 
           border: '1px solid var(--accent-danger)',
           color: 'var(--accent-danger)',
           borderRadius: 'var(--inner-radius)',

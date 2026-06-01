@@ -69,15 +69,15 @@ const AiDecisions = () => {
         <span>AI Analysis</span>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         {decisions.map((d, i) => (
           <div key={i} style={{ 
-            display: 'flex', alignItems: 'center', gap: '12px', 
-            background: 'var(--bg-color)', padding: '12px 14px', 
+            display: 'flex', alignItems: 'center', gap: '8px', 
+            background: 'var(--bg-color)', padding: '8px 10px', 
             borderRadius: 'var(--inner-radius)'
           }}>
-            <d.Icon size={14} style={{ color: d.color, flexShrink: 0 }} />
-            <span style={{ fontSize: '12px', fontWeight: 600, color: d.color }}>{d.text}</span>
+            <d.Icon size={12} style={{ color: d.color, flexShrink: 0 }} />
+            <span style={{ fontSize: '11px', fontWeight: 600, color: d.color }}>{d.text}</span>
           </div>
         ))}
       </div>

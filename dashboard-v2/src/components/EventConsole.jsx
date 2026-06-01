@@ -41,7 +41,7 @@ const EventConsole = () => {
   }, [logs]);
 
   return (
-    <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '150px' }}>
+    <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%' }}>
       <div className="card-header">
         <h3><span className="icon">💻</span> Event Console</h3>
       </div>

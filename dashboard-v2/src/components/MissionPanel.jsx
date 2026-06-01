@@ -65,26 +65,26 @@ const MissionPanel = () => {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '16px' }}>
-        <div style={{ background: 'var(--bg-color)', padding: '10px 4px', borderRadius: 'var(--inner-radius)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-          <BarChart3 size={12} className="text-secondary" />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '12px' }}>
+        <div style={{ background: 'var(--bg-color)', padding: '6px 2px', borderRadius: 'var(--inner-radius)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+          <BarChart3 size={10} className="text-secondary" />
           <span style={{ fontSize: '8px', color: 'var(--text-tertiary)', fontWeight: 600 }}>ROWS</span>
-          <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--accent-primary)' }}>{row}/{maxRows}</span>
+          <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent-primary)' }}>{row}/{maxRows}</span>
         </div>
-        <div style={{ background: 'var(--bg-color)', padding: '10px 4px', borderRadius: 'var(--inner-radius)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-          <Clock size={12} className="text-secondary" />
+        <div style={{ background: 'var(--bg-color)', padding: '6px 2px', borderRadius: 'var(--inner-radius)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+          <Clock size={10} className="text-secondary" />
           <span style={{ fontSize: '8px', color: 'var(--text-tertiary)', fontWeight: 600 }}>TIME</span>
-          <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--accent-primary)' }}>{elapsedMin}m</span>
+          <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent-primary)' }}>{elapsedMin}m</span>
         </div>
-        <div style={{ background: 'var(--bg-color)', padding: '10px 4px', borderRadius: 'var(--inner-radius)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-          <Zap size={12} className="text-secondary" />
+        <div style={{ background: 'var(--bg-color)', padding: '6px 2px', borderRadius: 'var(--inner-radius)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+          <Zap size={10} className="text-secondary" />
           <span style={{ fontSize: '8px', color: 'var(--text-tertiary)', fontWeight: 600 }}>BATTERY</span>
-          <span style={{ fontSize: '12px', fontWeight: 800, color: batColor }}>{battery?.percent}%</span>
+          <span style={{ fontSize: '11px', fontWeight: 800, color: batColor }}>{battery?.percent}%</span>
         </div>
-        <div style={{ background: 'var(--bg-color)', padding: '10px 4px', borderRadius: 'var(--inner-radius)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-          <Clock size={12} className="text-secondary" />
+        <div style={{ background: 'var(--bg-color)', padding: '6px 2px', borderRadius: 'var(--inner-radius)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+          <Clock size={10} className="text-secondary" />
           <span style={{ fontSize: '8px', color: 'var(--text-tertiary)', fontWeight: 600 }}>ETA</span>
-          <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--accent-primary)' }}>{eta}m</span>
+          <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent-primary)' }}>{eta}m</span>
         </div>
       </div>
 
@@ -116,9 +116,9 @@ const MissionPanel = () => {
         )}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-color)', padding: '10px 12px', borderRadius: 'var(--inner-radius)' }}>
-        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', letterSpacing: '0.5px' }}>EFFICIENCY</span>
-        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent-success)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-color)', padding: '6px 12px', borderRadius: 'var(--inner-radius)' }}>
+        <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-tertiary)', letterSpacing: '0.5px' }}>EFFICIENCY</span>
+        <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent-success)' }}>
           {coverage > 0 && elapsedMin > 0 ? `${(coverage / elapsedMin).toFixed(1)}%/min` : '—'}
         </span>
       </div>

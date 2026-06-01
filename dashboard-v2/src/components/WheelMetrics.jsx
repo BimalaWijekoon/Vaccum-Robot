@@ -8,18 +8,20 @@ const WheelMetrics = () => {
   const renderMetric = (label, value, unit) => (
     <div style={{ 
       background: 'var(--bg-color)', 
-      padding: '10px', 
+      padding: '6px 10px', 
       borderRadius: 'var(--inner-radius)', 
       display: 'flex', 
-      flexDirection: 'column', 
+      justifyContent: 'space-between',
       alignItems: 'center',
-      justifyContent: 'center'
+      border: '1px solid var(--border-color)'
     }}>
-      <span className="text-secondary" style={{ fontSize: '10px', fontWeight: 700, marginBottom: '4px' }}>{label}</span>
-      <span style={{ fontFamily: 'Outfit', fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
-        {value}
-      </span>
-      <span className="text-tertiary" style={{ fontSize: '10px', marginTop: '2px' }}>{unit}</span>
+      <span className="text-secondary" style={{ fontSize: '10px', fontWeight: 700 }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+        <span style={{ fontFamily: 'Outfit', fontSize: '14px', fontWeight: 800, color: 'var(--text-primary)' }}>
+          {value}
+        </span>
+        <span className="text-tertiary" style={{ fontSize: '9px' }}>{unit}</span>
+      </div>
     </div>
   );
 
@@ -30,11 +32,10 @@ const WheelMetrics = () => {
         <span>Wheel Metrics</span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-        {renderMetric('L-WHEEL', ((odometry?.left_cm || 0) / 100).toFixed(2), 'meters')}
-        {renderMetric('R-WHEEL', ((odometry?.right_cm || 0) / 100).toFixed(2), 'meters')}
-        {renderMetric('HEADING', `${odometry?.yaw || 0}°`, 'yaw')}
-        {renderMetric('ROW', autoState?.row || 0, 'current')}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        {renderMetric('L-WHEEL', ((odometry?.left_cm || 0) / 100).toFixed(2), 'm')}
+        {renderMetric('R-WHEEL', ((odometry?.right_cm || 0) / 100).toFixed(2), 'm')}
+        {renderMetric('HEADING', `${autoState?.yaw || 0}°`, 'yaw')}
       </div>
     </div>
   );
