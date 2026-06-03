@@ -4,12 +4,14 @@
 
 Welcome to the VacBot project! This guide explains how to set up the hardware, flash the firmware, run the simulator, and use the web dashboard.
 
-**Latest Updates (v2.0)**:
-- 🔁 **Advanced TEACH & REPLAY Mode**: Completely overhauled waypoint recording. The robot now records *snapshot segments* based on command changes (rather than a time-based loop), eliminating cumulative dead-reckoning drift. Replay mode features intelligent micro-correction passes on turns and rate-based encoder drift correction for perfect straight lines, even on high-friction carpets!
-- 🔋 **Smart Sleep Mode & Auto-Standby**: The new `SLEEP` state suspends high-frequency sonar and gyro polling, stops the motors, and shuts off the NeoPixel LEDs. The robot automatically puts itself into Standby after 5 minutes of inactivity.
-- 🎛️ **Remote Calibration**: Zero the gyro and reset wheel encoders remotely directly from the dashboard header without physically touching the robot.
-- 📱 **Mobile UI & Rendering Fixes**: Eliminated canvas device-pixel-ratio scaling crashes on iOS/Android. Fully responsive mission control layout with corrected body overflow styling.
-- 🏎️ **Optimized Motor Torque**: Drive speeds increased to handle heavy friction on hard floors and carpets without stalling.
+**Latest Updates (v2.1 - Commercial Grade Edition)**:
+- 🌐 **Commercial Wi-Fi Provisioning (`WiFiManager`)**: Removed hardcoded Wi-Fi credentials. The robot now acts like a commercial smart-home product—if it loses connection, it broadcasts its own `VacBot-Setup` network for offline phone setup!
+- ⚙️ **Dashboard Settings Modal**: A sleek new glass-morphism settings modal in the UI allows you to beam new Wi-Fi credentials to the robot instantly while it's running.
+- 🏎️ **Dynamic Speed Control & Live Speedometer**: New `DriveControl` UI featuring an animated SVG speedometer that calculates real-time physical velocity in `cm/s` based on encoder feedback. Adjustable PWM slider for global speed control.
+- 📡 **Over-The-Air (OTA) Updates**: You never need a USB cable again. The firmware can now be flashed completely wirelessly over your Wi-Fi network using the Arduino IDE Network Port.
+- ⌨️ **Pro Keyboard Shortcuts**: Full hotkey support added: `TAB` cycles modes, `1,2,3` sets suction presets, `O` kills the vacuum, `M` toggles voice commands, `C` calibrates, and `Z` triggers sleep mode.
+- 🔁 **Advanced TEACH & REPLAY Mode**: Completely overhauled waypoint recording using snapshot segments to eliminate dead-reckoning drift. Replay features micro-correction passes on turns.
+- 🔋 **Smart Sleep Mode**: Suspends high-frequency polling and disables motors/LEDs. Auto-standby after 5 minutes of inactivity.
 
 ## Hardware Wiring
 
@@ -47,6 +49,7 @@ You must install the following libraries via the Arduino IDE Library Manager:
 - **Adafruit Unified Sensor** (by Adafruit)
 - **Adafruit NeoPixel** (by Adafruit)
 - **ArduinoJson** (by Benoit Blanchon)
+- **WiFiManager** (by tzapu) - *Required for the new Captive Portal Wi-Fi setup!*
 
 ## Step 1 — Flash Firmware
 
@@ -67,13 +70,21 @@ PlatformIO is pre-configured via `platformio.ini` at the project root. No code c
    pio device monitor
    ```
 
-### Option B — Arduino IDE (Legacy)
+### Option B — Arduino IDE (Legacy / USB)
 
-1. Open `vacbot_firmware.ino` in the Arduino IDE.
-2. Edit the `CONFIG` block at the top of the file to set your `WIFI_SSID` and `WIFI_PASS`. (MQTT credentials are already set).
+1. Open `Vacbot-Firmware.ino` in the Arduino IDE.
+2. (No need to edit Wi-Fi credentials in the code anymore! They are handled by WiFiManager).
 3. Under **Tools > Board**, select **ESP32S3 Dev Module**.
 4. Set the **Upload Speed** to `921600`.
 5. Connect your ESP32-S3 via USB and click **Upload**.
+
+### Option C — Over-The-Air (OTA) Wireless Upload
+Once you have flashed the firmware via USB for the very first time, you never need a cable again!
+1. Ensure the robot is turned on and connected to the same Wi-Fi network as your computer.
+2. Open the Arduino IDE.
+3. Go to **Tools > Port** and look in the **Network Ports** section.
+4. Select `VacBot-ESP32 at 192.168.x.x`.
+5. Click **Upload**! (If prompted for a password, leave it blank).
 
 ## Step 2 — Initial Gyro Calibration
 
@@ -103,10 +114,13 @@ The dashboard is organized in a professional 3-column mission control layout:
 
 ### Dashboard Features
 
+- **Commercial Wi-Fi Settings**: A sleek gear icon opens a blurred modal to beam new Wi-Fi credentials to the robot instantly.
+- **Live Speedometer**: A car-style SVG dashboard gauge that calculates true physical velocity (cm/s) using differential encoder distance over time. Includes an adjustable PWM speed slider.
+- **Pro Keyboard Shortcuts**: Drive with `WASD`/Arrows, tap `TAB` to quickly cycle modes (MANUAL->AUTO->TEACH->REPLAY), press `1/2/3` to snap suction to 30/60/100%, and `Z` to sleep.
 - **Header System Controls**: Remote Sleep/Wake toggle button and Recalibration button!
 - **Real-time SLAM Map**: Canvas visualization showing robot position, path history, obstacle positions, and movement trends.
 - **Live Radar**: SVG 180° radar displaying front/left/right sensor distances with safe direction indicators.
-- **Arrow Navigation**: 4-directional movement control with keyboard support (↑↓←→ or WASD) and touch support.
+- **Voice Commands**: Press `M` to activate your microphone and command the robot verbally ("Go forward", "Stop", "Turn left", "Sleep").
 - **Teach & Replay Menu**: Easily record custom paths (waypoints) and trigger autonomous playback loops.
 - **Battery Monitoring**: Live voltage, percentage, health status with color-coded alerts.
 
@@ -118,12 +132,13 @@ All communication happens under the `vacbot/` prefix:
 | :--- | :--- | :--- | :--- |
 | `vacbot/cmd/movement` | ⬇️ Dash -> Robot | `FORWARD`, `STOP` | Manual drive commands |
 | `vacbot/cmd/suction` | ⬇️ Dash -> Robot | `160`, `255` | 0-255 manual vacuum speed |
+| `vacbot/cmd/speed` | ⬇️ Dash -> Robot | `150`, `255` | Global drive speed PWM setter |
 | `vacbot/cmd/mode` | ⬇️ Dash -> Robot | `AUTO`, `MANUAL`, `SLEEP` | Mode toggle |
-| `vacbot/cmd/system` | ⬇️ Dash -> Robot | `CALIBRATE` | Trigger remote calibration |
+| `vacbot/cmd/system` | ⬇️ Dash -> Robot | `CALIBRATE`, `WIFI:ssid:pass`| System commands & Wi-Fi provisioning |
 | `vacbot/status/battery` | ⬆️ Robot -> Dash | `{"voltage":"11.5","percent":85,"alert":false}` | Battery telemetry |
 | `vacbot/status/distance` | ⬆️ Robot -> Dash | `{"cm":120,"obstacle":false}` | Front sonar distance |
 | `vacbot/status/mode` | ⬆️ Robot -> Dash | `AUTO`, `SLEEP` | Mode confirmation |
-| `vacbot/status/odometry` | ⬆️ Robot -> Dash | `{"yaw": 90, "left_cm": 20}` | Dead-reckoning location |
+| `vacbot/status/odometry` | ⬆️ Robot -> Dash | `{"yaw": 90, "left_cm": 20, "speed_cm_s": 45}` | Dead-reckoning & live velocity |
 | `vacbot/status/teach` | ⬆️ Robot -> Dash | `{"recording":true,"waypoints":4}` | Teach state tracking |
 
 ## Firmware Features
@@ -153,7 +168,15 @@ All communication happens under the `vacbot/` prefix:
 
 ## Changelog
 
-### v2.0 (Current)
+### v2.1 (Commercial Grade Edition)
+- **Integrated WiFiManager**: Implemented a captive portal (`VacBot-Setup`) fallback for offline network configuration.
+- **Dashboard Wi-Fi Provisioning**: Added a dynamic React modal to push Wi-Fi updates via MQTT without relying on hardcoded C++ macros.
+- **Live Speedometer**: `T_STAT_ODOMETRY` now calculates and broadcasts real physical velocity (`cm/s`) based on encoder deltas.
+- **Global Speed Control**: Added UI PWM slider and backend integration to scale wheel velocity on the fly.
+- **Pro Keyboard Shortcuts**: Added `TAB` mode cycling and 1-2-3 suction preset shortcuts.
+- **Over-The-Air (OTA) Flashing**: Enabled ArduinoOTA for completely wireless firmware updates.
+
+### v2.0
 - Complete overhaul of TEACH/REPLAY snapshot logic.
 - Added intelligent PID rate-correction for straight-line replay drift.
 - Added micro-correction passes for precision turning.
