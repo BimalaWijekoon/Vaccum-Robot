@@ -7,7 +7,7 @@ import ControlPad from './components/ControlPad';
 import MapAndRadar from './components/MapAndRadar';
 import ActivityPanel from './components/ActivityPanel';
 import SystemController from './components/SystemController';
-import EventConsole from './components/EventConsole';
+import DriveControl from './components/DriveControl';
 const App = () => {
   return (
     <div className="app-container">
@@ -27,7 +27,7 @@ const App = () => {
             <ControlPad />
           </div>
           <div style={{ flex: 1.2, display: 'flex' }}>
-            <EventConsole />
+            <DriveControl />
           </div>
         </div>
       </div>

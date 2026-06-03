@@ -2,12 +2,14 @@ import React, { useEffect } from 'react';
 import { useMqtt } from '../MqttContext';
 import { useTheme } from '../ThemeContext';
 import { useVoiceCommands } from '../hooks/useVoiceCommands';
-import { Wifi, WifiOff, Moon, Sun, Bot, Power, RefreshCw, Mic, MicOff } from 'lucide-react';
+import { Wifi, WifiOff, Moon, Sun, Bot, Power, RefreshCw, Mic, MicOff, Settings } from 'lucide-react';
+import SettingsModal from './SettingsModal';
 
 const TopBar = () => {
   const { isConnected, mqttConnected, robotMode, sendMode, sendSystemCmd, sendSuction, battery } = useMqtt();
   const { isDark, toggleTheme } = useTheme();
   const { isListening, toggleListening, lastCommand } = useVoiceCommands();
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
 
   // Global Keyboard Shortcuts
   useEffect(() => {
@@ -273,7 +275,25 @@ const TopBar = () => {
         >
           {isDark ? <Sun size={18} /> : <Moon size={18} />}
         </button>
+
+        <button 
+          onClick={() => setSettingsOpen(true)}
+          title="Robot Settings"
+          style={{ 
+            background: 'var(--bg-color)', border: '1px solid var(--border-color)', 
+            color: 'var(--text-secondary)', cursor: 'pointer', 
+            padding: '10px', borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'all 0.2s'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--border-color)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'var(--bg-color)'}
+        >
+          <Settings size={18} />
+        </button>
       </div>
+      
+      <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
       
       <style>{`
         @keyframes pulse {

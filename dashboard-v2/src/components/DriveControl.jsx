@@ -1,0 +1,122 @@
+import React, { useState, useEffect } from 'react';
+import { useMqtt } from '../MqttContext';
+import { Settings, Gauge } from 'lucide-react';
+
+const DriveControl = () => {
+  const { driveSpeed, sendDriveSpeed, odometry } = useMqtt();
+  const [localSpeed, setLocalSpeed] = useState(driveSpeed);
+
+  // Sync with global state if it changes externally
+  useEffect(() => {
+    setLocalSpeed(driveSpeed);
+  }, [driveSpeed]);
+
+  const handleSliderChange = (e) => {
+    setLocalSpeed(parseInt(e.target.value));
+  };
+
+  const handleSliderEnd = (e) => {
+    sendDriveSpeed(parseInt(e.target.value));
+  };
+
+  // Speedometer values
+  const currentSpeed = odometry?.speed_cm_s ? parseFloat(odometry.speed_cm_s) : 0;
+  
+  // Calculate gauge angle (max 50 cm/s for full sweep)
+  const MAX_SPEED = 50; 
+  const clampedSpeed = Math.min(Math.max(currentSpeed, -MAX_SPEED), MAX_SPEED);
+  const percent = Math.abs(clampedSpeed) / MAX_SPEED;
+  
+  // SVG Arc calculation (from 180 deg to 0 deg)
+  const radius = 45;
+  const circumference = Math.PI * radius;
+  const offset = circumference - (percent * circumference);
+
+  return (
+    <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <div className="card-header">
+        <Gauge className="icon" size={18} />
+        <span style={{ fontWeight: 800 }}>DRIVE CONTROL</span>
+      </div>
+
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '20px', justifyContent: 'center' }}>
+        
+        {/* SPEEDOMETER GAUGE */}
+        <div style={{ position: 'relative', width: '120px', height: '70px', margin: '0 auto', marginTop: '10px' }}>
+          <svg width="120" height="70" viewBox="0 0 100 50">
+            {/* Background Arc */}
+            <path
+              d="M 10 50 A 40 40 0 0 1 90 50"
+              fill="none"
+              stroke="var(--border-color)"
+              strokeWidth="10"
+              strokeLinecap="round"
+            />
+            {/* Foreground Arc */}
+            <path
+              d="M 10 50 A 40 40 0 0 1 90 50"
+              fill="none"
+              stroke={currentSpeed < 0 ? "var(--warning-color)" : "var(--accent-color)"}
+              strokeWidth="10"
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={offset}
+              style={{ transition: 'stroke-dashoffset 0.3s ease-out, stroke 0.3s ease' }}
+            />
+          </svg>
+          
+          <div style={{ 
+            position: 'absolute', 
+            bottom: '0', 
+            left: '0', 
+            right: '0', 
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center'
+          }}>
+            <span style={{ 
+              fontFamily: 'Outfit', 
+              fontSize: '24px', 
+              fontWeight: 800, 
+              color: 'var(--text-primary)',
+              lineHeight: '1'
+            }}>
+              {Math.abs(currentSpeed).toFixed(1)}
+            </span>
+            <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: 600 }}>
+              {currentSpeed < 0 ? 'cm/s (REV)' : 'cm/s'}
+            </span>
+          </div>
+        </div>
+
+        {/* SPEED SLIDER */}
+        <div style={{ background: 'var(--bg-color)', padding: '15px', borderRadius: 'var(--inner-radius)', border: '1px solid var(--border-color)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>BASE PWM</span>
+            <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--accent-color)' }}>{localSpeed}</span>
+          </div>
+          
+          <input 
+            type="range" 
+            min="50" 
+            max="255" 
+            value={localSpeed}
+            onChange={handleSliderChange}
+            onMouseUp={handleSliderEnd}
+            onTouchEnd={handleSliderEnd}
+            style={{ width: '100%', cursor: 'pointer' }}
+          />
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
+            <span style={{ fontSize: '9px', color: 'var(--text-tertiary)' }}>MIN (50)</span>
+            <span style={{ fontSize: '9px', color: 'var(--text-tertiary)' }}>MAX (255)</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+export default DriveControl;

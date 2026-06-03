@@ -35,8 +35,6 @@
 // ============================================================================
 // CONFIG SECTION — EDIT THESE VALUES ONLY
 // ============================================================================
-#define WIFI_SSID                "COMFRI"
-#define WIFI_PASS                "1234567890"
 #define MQTT_HOST                "0808028e417c4ff2957842f563dafe7b.s1.eu.hivemq.cloud"
 #define MQTT_PORT                8883
 #define MQTT_USER                "VaccumRobot"
@@ -50,7 +48,8 @@
 #define MAX_ROWS                 10
 #define OBSTACLE_CM              10
 #define TURN_DONE_DEG            88.0f
-#define DRIVE_SPEED              140
+#define MAX_SPEED                255
+int driveSpeed                   = 140;
 #define PIVOT_SPEED              140
 #define FRONT_STOP_CM            8
 #define SIDE_CLEAR_CM            6
@@ -73,6 +72,7 @@
 #include <ArduinoOTA.h>
 #include <ESPmDNS.h>
 #include <WiFiUdp.h>
+#include <WiFiManager.h>
 
 // ============================================================================
 // GPIO Pin Definitions (from main.cpp hardware truth)
@@ -104,6 +104,7 @@
 // MQTT Topics
 // ============================================================================
 #define T_CMD_MOVEMENT  "vacbot/cmd/movement"
+#define T_CMD_SPEED     "vacbot/cmd/speed"
 #define T_CMD_SUCTION   "vacbot/cmd/suction"
 #define T_CMD_MODE      "vacbot/cmd/mode"
 #define T_CMD_SYS       "vacbot/cmd/system"
@@ -391,14 +392,14 @@ void motorsStop() {
 
 void motorsForward() {
   Serial.println("[MOTOR] >>> FORWARD");
-  setLeftMotor(DRIVE_SPEED, 1);
-  setRightMotor(DRIVE_SPEED, 1);
+  setLeftMotor(driveSpeed, 1);
+  setRightMotor(driveSpeed, 1);
 }
 
 void motorsBackward() {
   Serial.println("[MOTOR] >>> BACKWARD");
-  setLeftMotor(DRIVE_SPEED, -1);
-  setRightMotor(DRIVE_SPEED, -1);
+  setLeftMotor(driveSpeed, -1);
+  setRightMotor(driveSpeed, -1);
 }
 
 void motorsLeft() {
@@ -553,8 +554,8 @@ void correctStraightLine() {
 
   // ── 2. Handle State Transitions ─────────────────────────────────────────────
   static float targetHeading = 0.0f;
-  static int   leftPWM       = DRIVE_SPEED;
-  static int   rightPWM      = DRIVE_SPEED;
+  static int   leftPWM       = driveSpeed;
+  static int   rightPWM      = driveSpeed;
 
   // PID State Variables
   static float integralError = 0.0f;
@@ -563,8 +564,8 @@ void correctStraightLine() {
   if (!drivingStraight) {
     // Not moving straight: Continuously capture the heading as the future target
     targetHeading    = gyroAngle;
-    leftPWM          = DRIVE_SPEED;
-    rightPWM         = DRIVE_SPEED;
+    leftPWM          = driveSpeed;
+    rightPWM         = driveSpeed;
     integralError    = 0.0f;
     prevError        = 0.0f;
     lastCorrectionMs = millis();
@@ -602,8 +603,8 @@ void correctStraightLine() {
   }
 
   // Differential Drive Steering
-  leftPWM  = constrain(DRIVE_SPEED + correction, 50, 255);
-  rightPWM = constrain(DRIVE_SPEED - correction, 50, 255);
+  leftPWM  = constrain(driveSpeed + correction, 50, 255);
+  rightPWM = constrain(driveSpeed - correction, 50, 255);
 
   // Apply directly to motor PWM pins
   analogWrite(PIN_LEFT_ENA,  leftPWM);
@@ -990,21 +991,38 @@ void publishHeartbeat() {
 // NEW-4: Publish Odometry — yaw + wheel data in ALL modes every 200ms
 // ============================================================================
 void publishOdometry() {
+  static unsigned long lastOdoTime = 0;
+  static float lastAvg = 0.0f;
+  unsigned long now = millis();
+
   float lDist = leftDistCm();
   float rDist = rightDistCm();
   float avg   = (lDist + rDist) / 2.0f;
 
+  float dtSec = (now - lastOdoTime) / 1000.0f;
+  float speed_cm_s = 0.0f;
+  if (dtSec > 0.0f && lastOdoTime > 0) {
+    speed_cm_s = (avg - lastAvg) / dtSec;
+  }
+  lastOdoTime = now;
+  lastAvg = avg;
+
   Serial.print("[ODO] Yaw="); Serial.print(gyroAngle, 1);
   Serial.print("° L=");       Serial.print(lDist,     1);
   Serial.print("cm R=");      Serial.print(rDist,     1);
-  Serial.print("cm Mode=");   Serial.println(currentMode);
+  Serial.print("cm Mode=");   Serial.print(currentMode);
+  Serial.print(" Spd=");      Serial.print(speed_cm_s, 1);
+  Serial.println("cm/s");
 
   StaticJsonDocument<256> doc;
-  doc["yaw"]      = serialized(String(gyroAngle, 1));
-  doc["left_cm"]  = serialized(String(lDist,     1));
-  doc["right_cm"] = serialized(String(rDist,     1));
-  doc["avg_cm"]   = serialized(String(avg,        1));
-  doc["mode"]     = currentMode;
+  doc["yaw"]         = serialized(String(gyroAngle, 1));
+  doc["left_cm"]     = serialized(String(lDist,     1));
+  doc["right_cm"]    = serialized(String(rDist,     1));
+  doc["avg_cm"]      = serialized(String(avg,        1));
+  doc["mode"]        = currentMode;
+  doc["speed_cm_s"]  = serialized(String(speed_cm_s, 1));
+  doc["drive_speed"] = driveSpeed;
+
   if (currentMode == "TEACH") {
     doc["waypoints"] = pathLength;
   }
@@ -1071,6 +1089,23 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       updateStatusLED(); // Restore mode color
       mqtt.publish("vacbot/status/system", "Calibrated successfully");
       Serial.println("[SYS] Calibration complete.");
+    } else if (String(p).startsWith("WIFI:")) {
+      Serial.println("[SYS] WiFi Update command received.");
+      String payloadStr = String(p);
+      int firstColon = payloadStr.indexOf(':');
+      int secondColon = payloadStr.indexOf(':', firstColon + 1);
+      if (firstColon != -1 && secondColon != -1) {
+        String newSsid = payloadStr.substring(firstColon + 1, secondColon);
+        String newPass = payloadStr.substring(secondColon + 1);
+        Serial.print("New SSID: "); Serial.println(newSsid);
+        
+        WiFi.disconnect();
+        WiFi.begin(newSsid.c_str(), newPass.c_str());
+        
+        Serial.println("[SYS] Rebooting in 2s to apply WiFi...");
+        delay(2000);
+        ESP.restart();
+      }
     }
     return;
   }
@@ -1101,6 +1136,13 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     } else {
       Serial.println("[MQTT-RX] IGNORED — not in MANUAL/TEACH mode");
     }
+
+  // ── Speed Commands ──────────────────────────────────────────────────────────
+  } else if (strcmp(topic, T_CMD_SPEED) == 0) {
+    Serial.print("[MQTT-RX] Speed command: ");
+    int newSpeed = constrain(p.toInt(), 50, 255);
+    driveSpeed = newSpeed;
+    Serial.println(driveSpeed);
 
   // ── Mode Commands ──────────────────────────────────────────────────────────
   } else if (strcmp(topic, T_CMD_MODE) == 0) {
@@ -1266,6 +1308,8 @@ bool connectMQTT() {
 
   mqtt.subscribe(T_CMD_MOVEMENT);
   Serial.print("[MQTT] Subscribed: "); Serial.println(T_CMD_MOVEMENT);
+  mqtt.subscribe(T_CMD_SPEED);
+  Serial.print("[MQTT] Subscribed: "); Serial.println(T_CMD_SPEED);
   mqtt.subscribe(T_CMD_SUCTION);
   Serial.print("[MQTT] Subscribed: "); Serial.println(T_CMD_SUCTION);
   mqtt.subscribe(T_CMD_MODE);
@@ -1362,17 +1406,14 @@ void setup() {
 
   Serial.println();
   Serial.println("[WIFI] ========== Connecting to WiFi ==========");
-  Serial.print("[WIFI] SSID: "); Serial.println(WIFI_SSID);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-  unsigned long wifiStart = millis();
-  int dotCount = 0;
-  Serial.print("[WIFI] Waiting");
-  while (WiFi.status() != WL_CONNECTED && millis() - wifiStart < 10000) {
-    delay(500); Serial.print(".");
-    if (++dotCount % 20 == 0) Serial.println();
-  }
-  Serial.println();
-  if (WiFi.status() == WL_CONNECTED) {
+  
+  WiFiManager wm;
+  // Automatically connect to saved WiFi, or spin up 'VacBot-Setup' AP if it fails
+  bool res = wm.autoConnect("VacBot-Setup");
+
+  if (!res) {
+    Serial.println("[WIFI] *** CONNECTION FAILED (AP Timeout) ***");
+  } else {
     Serial.println("[WIFI] *** CONNECTED SUCCESSFULLY! ***");
     Serial.print("[WIFI] IP Address: "); Serial.println(WiFi.localIP());
     Serial.print("[WIFI] MAC Address: "); Serial.println(WiFi.macAddress());
@@ -1388,8 +1429,6 @@ void setup() {
     ArduinoOTA.onError([](ota_error_t error) { Serial.printf("[OTA] Error[%u]\n", error); });
     ArduinoOTA.begin();
     Serial.println("[OTA] Ready");
-  } else {
-    Serial.println("[WIFI] *** CONNECTION FAILED (timeout 10s) ***");
   }
   Serial.println("[WIFI] ==========================================");
 

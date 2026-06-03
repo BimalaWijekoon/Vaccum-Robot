@@ -22,6 +22,7 @@ export const MqttProvider = ({ children }) => {
   // App State matching firmware payloads
   const [robotMode, setRobotMode] = useState('MANUAL');
   const [suction, setSuction] = useState(0);
+  const [driveSpeed, setDriveSpeed] = useState(140);
   
   const [battery, setBattery] = useState({
     voltage: '0.0',
@@ -62,7 +63,9 @@ export const MqttProvider = ({ children }) => {
     left_cm: 0,
     right_cm: 0,
     avg_cm: 0,
-    mode: 'MANUAL'
+    mode: 'MANUAL',
+    speed_cm_s: 0,
+    drive_speed: 140
   });
 
   const [teach, setTeach] = useState({
@@ -236,7 +239,13 @@ export const MqttProvider = ({ children }) => {
     const pwmVal = Math.round((val / 100) * 255);
     publishCommand('cmd/suction', pwmVal);
   };
-  
+
+  const sendDriveSpeed = (val) => {
+    console.log("[CMD] Speed command:", val);
+    setDriveSpeed(val);
+    publishCommand('cmd/speed', val);
+  };
+
   const sendMode = (mode) => {
     console.log("[CMD] Mode command:", mode);
     // Optimistic update
@@ -272,8 +281,10 @@ export const MqttProvider = ({ children }) => {
       robotMode,
       mode: robotMode,               // Alias for convenience
       suction,
+      driveSpeed,
       setMovement,
       sendSuction,
+      sendDriveSpeed,
       sendMode,
       sendSystemCmd,                 // NEW
       logMessages,                   // Log queue for LiveLogs
