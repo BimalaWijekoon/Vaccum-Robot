@@ -4,12 +4,28 @@ import { useTheme } from '../ThemeContext';
 import { useVoiceCommands } from '../hooks/useVoiceCommands';
 import { Wifi, WifiOff, Moon, Sun, Bot, Power, RefreshCw, Mic, MicOff, Settings } from 'lucide-react';
 import SettingsModal from './SettingsModal';
+import AutoSpeedModal from './AutoSpeedModal';
 
 const TopBar = () => {
   const { isConnected, mqttConnected, robotMode, sendMode, sendSystemCmd, sendSuction, battery } = useMqtt();
   const { isDark, toggleTheme } = useTheme();
   const { isListening, toggleListening, lastCommand } = useVoiceCommands();
   const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [autoSpeedModalOpen, setAutoSpeedModalOpen] = React.useState(false);
+
+  const handleModeSelect = (targetMode) => {
+    if (targetMode === 'AUTO' && robotMode !== 'AUTO') {
+      setAutoSpeedModalOpen(true);
+    } else {
+      sendMode(targetMode);
+    }
+  };
+
+  useEffect(() => {
+    const handleOpenModal = () => setAutoSpeedModalOpen(true);
+    window.addEventListener('openAutoSpeedModal', handleOpenModal);
+    return () => window.removeEventListener('openAutoSpeedModal', handleOpenModal);
+  }, []);
 
   // Global Keyboard Shortcuts
   useEffect(() => {
@@ -23,10 +39,10 @@ const TopBar = () => {
       switch (key) {
         case 'tab':
           e.preventDefault(); // Prevent focus switching
-          if (robotMode === 'MANUAL') sendMode('AUTO');
-          else if (robotMode === 'AUTO') sendMode('TEACH');
-          else if (robotMode === 'TEACH') sendMode('REPLAY');
-          else sendMode('MANUAL');
+          if (robotMode === 'MANUAL') handleModeSelect('AUTO');
+          else if (robotMode === 'AUTO') handleModeSelect('TEACH');
+          else if (robotMode === 'TEACH') handleModeSelect('REPLAY');
+          else handleModeSelect('MANUAL');
           break;
         case 'm':
           e.preventDefault();
@@ -40,8 +56,8 @@ const TopBar = () => {
           break;
         case 'z':
           e.preventDefault();
-          if (robotMode === 'SLEEP') sendMode('MANUAL');
-          else sendMode('SLEEP');
+          if (robotMode === 'SLEEP') handleModeSelect('MANUAL');
+          else handleModeSelect('SLEEP');
           break;
         case 'o':
         case '0':
@@ -139,7 +155,7 @@ const TopBar = () => {
             key={m.id}
             className={`mode-tab ${robotMode === m.id ? 'active' : ''}`}
             style={robotMode === m.id ? { color: modeColor, borderBottomColor: modeColor } : {}}
-            onClick={() => sendMode(m.id)}
+            onClick={() => handleModeSelect(m.id)}
             disabled={m.disabled}
           >
             {m.label}
@@ -293,7 +309,9 @@ const TopBar = () => {
         </button>
       </div>
       
+      {/* Modals */}
       <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <AutoSpeedModal isOpen={autoSpeedModalOpen} onClose={() => setAutoSpeedModalOpen(false)} />
       
       <style>{`
         @keyframes pulse {

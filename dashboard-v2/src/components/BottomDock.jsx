@@ -25,7 +25,13 @@ const BottomDock = () => {
       </button>
 
       <button 
-        onClick={() => sendMode('AUTO')}
+        onClick={() => {
+          if (robotMode !== 'AUTO') {
+            window.dispatchEvent(new CustomEvent('openAutoSpeedModal'));
+          } else {
+            sendMode('AUTO');
+          }
+        }}
         style={{
           display: 'flex', alignItems: 'center', gap: '8px',
           padding: '12px 24px', borderRadius: '30px', border: 'none',

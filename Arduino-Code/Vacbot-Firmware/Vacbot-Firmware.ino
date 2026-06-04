@@ -50,6 +50,7 @@
 #define TURN_DONE_DEG            88.0f
 #define MAX_SPEED                255
 int driveSpeed                   = 140;
+bool gyroAssistEnabled           = false;
 #define PIVOT_SPEED              140
 #define FRONT_STOP_CM            8
 #define SIDE_CLEAR_CM            6
@@ -561,8 +562,13 @@ void correctStraightLine() {
   static float integralError = 0.0f;
   static float prevError     = 0.0f;
 
-  if (!drivingStraight) {
-    // Not moving straight: Continuously capture the heading as the future target
+  bool skipCorrection = false;
+  if (currentMode != "AUTO" && !gyroAssistEnabled) {
+    skipCorrection = true;
+  }
+
+  if (!drivingStraight || skipCorrection) {
+    // Not moving straight or assist is off: Continuously capture the heading as the future target
     targetHeading    = gyroAngle;
     leftPWM          = driveSpeed;
     rightPWM         = driveSpeed;
@@ -1105,6 +1111,14 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
         Serial.println("[SYS] Rebooting in 2s to apply WiFi...");
         delay(2000);
         ESP.restart();
+      }
+    } else if (String(p).startsWith("GYRO_ASSIST:")) {
+      if (String(p) == "GYRO_ASSIST:ON") {
+        gyroAssistEnabled = true;
+        Serial.println("[SYS] Gyro Assist Enabled.");
+      } else {
+        gyroAssistEnabled = false;
+        Serial.println("[SYS] Gyro Assist Disabled.");
       }
     }
     return;
