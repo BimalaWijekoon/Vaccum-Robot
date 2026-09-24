@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd dashboard && npm install && npm run build",
-  "outputDirectory": "dashboard/dist",
+  "buildCommand": "cd dashboard-v2 && npm install && npm run build",
+  "outputDirectory": "dashboard-v2/dist",
   "framework": "vite"
 }
